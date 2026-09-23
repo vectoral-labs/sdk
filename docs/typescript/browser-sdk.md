@@ -39,7 +39,7 @@ form.addEventListener("submit", async (e) => {
 {
   device_fingerprint: "fp_9c1e4a7b…",
   client: {
-    webdriver: false,          // a real `false` is a useful negative
+    webdriver: false,          // present only when the browser reported it
     fingerprint_anomaly: 0.0,
     load_to_submit_ms: 8400,
     timezone: "Europe/Berlin",

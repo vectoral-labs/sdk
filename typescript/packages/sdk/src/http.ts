@@ -16,6 +16,24 @@ export interface TransportOptions {
   retries: number;
 }
 
+/**
+ * Assert that a 2xx body is the acknowledgement these write endpoints promise.
+ *
+ * They never fail open, so an unvalidated pass-through is a silently dropped
+ * write: a captive portal or version-skewed gateway answering `200 {"message":
+ * "ok"}` would look exactly like delivered telemetry. Telemetry you silently
+ * drop is telemetry you never notice missing.
+ */
+export function assertAck<T>(body: T): T {
+  if (typeof (body as { ok?: unknown })?.ok !== "boolean") {
+    throw new VectoralError(
+      "vectoral: response is not an acknowledgement (missing boolean `ok`)",
+      { code: "invalid_response", status: 200, responseBody: JSON.stringify(body) },
+    );
+  }
+  return body;
+}
+
 export interface PostOptions {
   /**
    * Whether a retry is safe. Every Vectoral write endpoint mints a new row per
@@ -24,7 +42,13 @@ export interface PostOptions {
    * would double-write.
    */
   idempotent: boolean;
-  /** Overrides the client-wide timeout for this call (used by `deadline_ms`). */
+  /**
+   * A per-call timeout FLOOR, used by `deadline_ms`. It can only raise the
+   * effective timeout, never lower it: a caller who configured `timeoutMs`
+   * explicitly must not have it silently reduced by asking the server for a
+   * tight budget, or a slow link turns every good verdict into a fail-open
+   * zero — the failure mode `httpTimeoutFor` exists to prevent.
+   */
   timeoutMs?: number;
 }
 
@@ -43,7 +67,11 @@ export class Transport {
     let attempt = 0;
     for (;;) {
       try {
-        return await this.doPost<T>(url, body, po.timeoutMs ?? this.opts.timeoutMs);
+        return await this.doPost<T>(
+          url,
+          body,
+          Math.max(po.timeoutMs ?? 0, this.opts.timeoutMs),
+        );
       } catch (err) {
         const retryable = err instanceof VectoralError && err.transient;
         if (retryable && attempt < maxAttempts) {

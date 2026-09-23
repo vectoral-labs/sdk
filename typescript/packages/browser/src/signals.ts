@@ -3,7 +3,7 @@
 
 import { deviceFingerprint } from "./device.js";
 import { detectAutomation } from "./automation.js";
-import { timezone } from "./env.js";
+import { nav, safe, timezone } from "./env.js";
 import type { FormTracker, FormTelemetrySnapshot } from "./form.js";
 
 export interface SignupSignalsOptions {
@@ -22,7 +22,8 @@ export interface SignupSignalsOptions {
 export interface SignupSignals {
   device_fingerprint: string;
   client: {
-    webdriver: boolean;
+    /** Present only when the browser actually reported `navigator.webdriver`. */
+    webdriver?: boolean;
     fingerprint_anomaly: number;
     load_to_submit_ms?: number;
     timezone?: string;
@@ -65,12 +66,17 @@ export async function signupSignals(
   ];
   const formSnapshot = opts.form?.snapshot();
   const tz = timezone();
+  const webdriver = safe(() => nav().webdriver, undefined);
 
   return {
     device_fingerprint: device.fingerprint,
     client: {
       // A real `false` is a useful negative; omitting the field says nothing.
-      webdriver: automation.signals.webdriver_flag === true,
+      // So the field is included ONLY when the browser actually reported the
+      // property. The automation tell cannot answer this — it is
+      // `navigator.webdriver === true`, which reads `false` for "absent" and
+      // for "measured false" alike, so probe the property directly.
+      ...(typeof webdriver === "boolean" ? { webdriver } : {}),
       fingerprint_anomaly: automation.fingerprintAnomaly,
       ...(formSnapshot ? { load_to_submit_ms: formSnapshot.load_to_submit_ms } : {}),
       ...(tz ? { timezone: tz } : {}),

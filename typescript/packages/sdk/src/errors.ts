@@ -32,7 +32,7 @@ export class VectoralError extends Error {
   /**
    * True for failures where the request provably did not reach a decision:
    * network errors, timeouts, and 5xx. A retry is safe only if the call also
-   * carried an `event_id` — see `docs/concepts/idempotency.md`.
+   * carried an `event_id` — see `docs/concepts/reliability.md`.
    */
   get transient(): boolean {
     return (

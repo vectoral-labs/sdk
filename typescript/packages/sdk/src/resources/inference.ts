@@ -2,6 +2,7 @@
 
 import type { Transport } from "../http.js";
 import { VectoralError, notifyError } from "../errors.js";
+import { assertAck } from "../http.js";
 import type { ResolvedFingerprintConfig } from "../salt.js";
 import { computeFingerprint, conversationKey } from "../fingerprint/index.js";
 
@@ -229,9 +230,11 @@ export class Inference {
    * you silently drop is telemetry you never notice missing.
    */
   postCall(event: PostCallEvent): Promise<OkResponse> {
-    return this.transport.post<OkResponse>("/v1/events/post-call", event, {
-      idempotent: event.event_id !== undefined,
-    });
+    return this.transport
+      .post<OkResponse>("/v1/events/post-call", event, {
+        idempotent: event.event_id !== undefined,
+      })
+      .then(assertAck);
   }
 
   /**
@@ -243,7 +246,21 @@ export class Inference {
     const { prompt_text_to_fingerprint: text, ...rest } = req.request;
     const out: ScoreRequest = { ...req, request: rest };
     const cfg = this.opts.fingerprint;
-    if (!cfg) return out;
+    if (!cfg) {
+      if (text !== undefined && text !== "" && !this.warnedMissingFingerprintInput) {
+        this.warnedMissingFingerprintInput = true;
+        this.opts.onWarning?.(
+          "request.prompt_text_to_fingerprint was supplied but prompt " +
+            "fingerprinting is not configured — the text was stripped and no " +
+            "fingerprint was sent. Set `fingerprint: { enabled: true, salt, saltId }`",
+        );
+      }
+      return out;
+    }
+    // A caller who precomputed their own block (a proxy, a batch importer)
+    // asked for exactly that. Recomputing over it would silently discard work
+    // the docs tell them to do.
+    if (rest.prompt_fingerprint !== undefined) return out;
     if (text === undefined || text === "") {
       if (!this.warnedMissingFingerprintInput) {
         this.warnedMissingFingerprintInput = true;

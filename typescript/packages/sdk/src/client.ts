@@ -76,8 +76,11 @@ export class Vectoral {
   readonly fingerprintingActive: boolean;
 
   constructor(opts: VectoralOptions = {}) {
-    const apiKey = opts.apiKey ?? env("VECTORAL_API_KEY");
     const customerId = opts.customerId;
+    // The env fallback applies only when no credential was passed at all. A
+    // stray VECTORAL_API_KEY in a shared .env or on a CI runner must not make
+    // header auth unconstructable — the caller supplied exactly one credential.
+    const apiKey = opts.apiKey ?? (customerId ? undefined : env("VECTORAL_API_KEY"));
     if (apiKey && customerId) {
       throw new VectoralConfigError(
         "provide either `apiKey` or `customerId`, not both",

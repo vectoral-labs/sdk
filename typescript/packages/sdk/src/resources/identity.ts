@@ -2,6 +2,7 @@
 // place a registration gets linked to the account it became.
 
 import type { Transport } from "../http.js";
+import { assertAck } from "../http.js";
 import type { OkResponse } from "./inference.js";
 
 export type IdentityEventType = "signup" | "login" | "dashboard";
@@ -44,9 +45,11 @@ export class Identity {
    * other splits your own sybil graph.
    */
   record(event: IdentityEvent): Promise<OkResponse> {
-    return this.transport.post<OkResponse>("/v1/identity", event, {
-      idempotent: event.event_id !== undefined,
-    });
+    return this.transport
+      .post<OkResponse>("/v1/identity", event, {
+        idempotent: event.event_id !== undefined,
+      })
+      .then(assertAck);
   }
 
   /**

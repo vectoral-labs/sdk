@@ -397,3 +397,110 @@ describe("fail-open holds under hostile conditions", () => {
     2000,
   );
 });
+
+// Second review pass (fable). Same rule: each test is the failing case.
+describe("second review pass", () => {
+  it("never lets deadline_ms lower the caller's configured timeout", async () => {
+    // httpTimeoutFor(250) is 550ms. A caller who deliberately set timeoutMs
+    // 5000 must not have it silently reduced — on a slow link that converts
+    // every good verdict into a fail-open zero, the exact failure
+    // registrations.ts warns about.
+    const slowFetch = (_url: string, init?: RequestInit): Promise<Response> =>
+      new Promise((resolve, reject) => {
+        const t = setTimeout(() => resolve(json(REG_OK)), 700);
+        // Real fetch rejects on abort; a stub that ignores the signal would
+        // make this test pass no matter what the timeout is.
+        init?.signal?.addEventListener("abort", () => {
+          clearTimeout(t);
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      });
+    const v = new Vectoral({
+      apiKey: "k",
+      fetch: slowFetch as unknown as typeof fetch,
+      timeoutMs: 5000,
+    });
+
+    const verdict = await v.registrations.score({ email: "a@b.com", deadline_ms: 250 });
+
+    expect(verdict.degraded).toBe(false);
+    expect(verdict.tier).toBe(REG_OK.tier);
+  }, 4000);
+
+  it("still raises the timeout above a deadline larger than timeoutMs", async () => {
+    // The original intent must survive: a deadline above the configured
+    // timeout still wins, or we abort a server that was about to answer.
+    const slowFetch = async (): Promise<Response> => {
+      await new Promise((r) => setTimeout(r, 400));
+      return json(REG_OK);
+    };
+    const v = new Vectoral({
+      apiKey: "k",
+      fetch: slowFetch as unknown as typeof fetch,
+      timeoutMs: 100,
+    });
+
+    const verdict = await v.registrations.score({ email: "a@b.com", deadline_ms: 1000 });
+
+    expect(verdict.degraded).toBe(false);
+  }, 4000);
+
+  it("lets an explicit customerId win over VECTORAL_API_KEY in the environment", () => {
+    // A shared .env or CI runner exporting the key must not make header auth
+    // unconstructable — the caller supplied exactly one credential.
+    const saved = process.env.VECTORAL_API_KEY;
+    process.env.VECTORAL_API_KEY = "vg_live_from_env";
+    try {
+      expect(() => new Vectoral({ customerId: "cus_1" })).not.toThrow();
+    } finally {
+      if (saved === undefined) delete process.env.VECTORAL_API_KEY;
+      else process.env.VECTORAL_API_KEY = saved;
+    }
+  });
+
+  it("still rejects two explicitly-passed credentials", () => {
+    expect(() => new Vectoral({ apiKey: "k", customerId: "c" })).toThrow(/not both/);
+  });
+
+  it("rejects a 2xx write response that is not an ack", async () => {
+    // These endpoints never fail open, so a silent pass-through is a silently
+    // dropped write — "telemetry you silently drop is telemetry you never
+    // notice missing".
+    const { fetch } = stubFetch([json({ message: "ok" })]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    await expect(v.labels.fraud("user_1")).rejects.toThrow(/not an acknowledgement/);
+  });
+
+  it("keeps a caller-precomputed prompt_fingerprint instead of overwriting it", async () => {
+    // Documented for proxies and batch importers that fingerprint upstream.
+    // Recomputing over their block discards work they were told to do.
+    const precomputed = {
+      v: 1 as const,
+      salt_id: "s_2026_01",
+      simhash: "aaaaaaaaaaaaaaaa",
+      exact_hash: "bbbbbbbbbbbbbbbb",
+    };
+    const { fetch, calls } = stubFetch([
+      json({ score: 0.1, tier: "low", reasons: [], deep_mode_active: false,
+             baseline_ready: true, shadow_mode: false }),
+    ]);
+    const v = new Vectoral({
+      apiKey: "k",
+      fetch,
+      fingerprint: { enabled: true, salt: "x".repeat(32), saltId: "s_2026_09" },
+    });
+
+    await v.inference.score({
+      account_id: "user_1",
+      request: {
+        prompt_fingerprint: precomputed,
+        prompt_text_to_fingerprint: "a prompt long enough to clear the eight token floor easily",
+      },
+    });
+
+    const sent = (calls[0]!.body as { request: { prompt_fingerprint: typeof precomputed } })
+      .request.prompt_fingerprint;
+    expect(sent).toEqual(precomputed);
+  });
+});
