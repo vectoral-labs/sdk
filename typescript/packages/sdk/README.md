@@ -41,9 +41,6 @@ an expired key looks exactly like a flow where every request is legitimate.
 
 `0.x`, published under the `beta` tag. The API surface may still move.
 
-`registrations.score()` targets an endpoint that is not yet deployed — see the
-repository README before building against it.
-
 ## License
 
 Apache-2.0

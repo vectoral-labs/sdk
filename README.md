@@ -52,17 +52,15 @@ The prompt-fingerprint implementation is a port of the normative Go one and is
 verified against its golden vectors — see
 [`docs/concepts/fingerprinting.md`](docs/concepts/fingerprinting.md).
 
-### One endpoint is not deployed yet
+### Endpoint coverage
 
-`registrations.score()` and everything feeding it — `device_fingerprint`, the
-`client` block, the `form` block — target `POST /v1/registrations/score`, which
-is **not yet live**. It is absent from the public OpenAPI spec and from the
-deployed API. The SDK surface, its types, and its docs are all complete and
-tested, but calls will fail until the endpoint ships.
+Every endpoint the SDK calls is live on the deployed API, including
+`POST /v1/registrations/score`. Note that the public OpenAPI spec currently
+lags the deployed service and does not list that route yet.
 
-Everything else — `inference.score()`, `postCall()`, `identity`, `labels`,
-prompt fingerprinting, and the whole of `@vectoral/browser` — runs against the
-live API today.
+Not yet wrapped by the SDK: `POST /v1/registrations/{id}/label` (registration-level
+labels, distinct from the account labels `vectoral.labels` covers),
+`POST /v1/accounts/{id}/commerce`, and the import/status endpoints.
 
 ## Releasing
 
