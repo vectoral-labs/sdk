@@ -208,13 +208,38 @@ export class Inference {
       // See the matching check in registrations.score(): syntactically valid
       // JSON is not proof of a verdict, and a silent pass-through would hand
       // the caller a score of `undefined` with `degraded` unset.
-      if (typeof body?.score !== "number" || typeof body?.tier !== "string") {
+      //
+      // Every field below is unconditional server-side, and callers branch on
+      // all of them — the documented enforcement guard reads `baseline_ready`,
+      // so a response missing it would read as "not enforcement-grade" and
+      // permit the request while claiming to be healthy.
+      //
+      // `tier` is checked for being a non-empty string and NOT against a list
+      // of known values. Bands are an open scale server-side; an allowlist
+      // would fail-open every call the day a new one ships, which is the very
+      // bug this check exists to prevent.
+      //
+      // Validated through an untrusted view: `body` is typed as ScoreResponse,
+      // so TypeScript would reject a check for a shape that type cannot hold —
+      // which is exactly the shape a misbehaving server can send.
+      const raw = body as unknown as Record<string, unknown>;
+      if (
+        typeof raw?.score !== "number" ||
+        typeof raw?.tier !== "string" ||
+        raw.tier === "" ||
+        typeof raw?.deep_mode_active !== "boolean" ||
+        typeof raw?.baseline_ready !== "boolean" ||
+        typeof raw?.shadow_mode !== "boolean" ||
+        !(Array.isArray(raw?.reasons) || raw?.reasons === null)
+      ) {
         throw new VectoralError(
-          "vectoral: response is not a score verdict (missing numeric `score` / string `tier`)",
+          "vectoral: response is not a score verdict (missing or malformed required fields)",
           { code: "invalid_response", status: 200, responseBody: JSON.stringify(body) },
         );
       }
-      return body;
+      // Go marshals a nil slice as `null`; that is the server's own shape for
+      // "no reasons", so normalise rather than hand the caller a null array.
+      return raw.reasons === null ? { ...body, reasons: [] } : body;
     } catch (err) {
       if (!this.opts.failOpen || !(err instanceof VectoralError)) throw err;
       notifyError(this.opts.onError, err, "inference.score");

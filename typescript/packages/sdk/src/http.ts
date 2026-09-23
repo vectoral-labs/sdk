@@ -25,9 +25,13 @@ export interface TransportOptions {
  * drop is telemetry you never notice missing.
  */
 export function assertAck<T>(body: T): T {
-  if (typeof (body as { ok?: unknown })?.ok !== "boolean") {
+  // Strictly `true`. `{ ok: false }` is not a success, and callers treat
+  // fulfilment as delivery — they only retry on rejection — so resolving a
+  // negative acknowledgement drops the write just as silently as accepting a
+  // body with no `ok` at all.
+  if ((body as { ok?: unknown })?.ok !== true) {
     throw new VectoralError(
-      "vectoral: response is not an acknowledgement (missing boolean `ok`)",
+      "vectoral: write was not acknowledged (expected `ok: true`)",
       { code: "invalid_response", status: 200, responseBody: JSON.stringify(body) },
     );
   }

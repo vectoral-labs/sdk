@@ -1,8 +1,13 @@
 name: CI
 
-# Gates every push and PR on the three things a publish depends on: the tests
-# pass, the types check, and both packages actually build. `dist/` is gitignored,
-# so the build step is the only proof the published artifact can be produced.
+# Gates every push and PR on the four things a publish depends on: the tests
+# pass, the types check, both packages build, and the resulting tarballs are
+# actually installable. `dist/` is gitignored, so the build and consumer steps
+# are the only proof the published artifact can be produced and used.
+#
+# Actions are pinned to commit SHAs, not to `@v4`: a mutable tag can be
+# repointed at an unreviewed revision that would then run with access to this
+# workspace. Dependabot (.github/dependabot.yml) proposes the bumps.
 on:
   push:
     branches: [main]
@@ -28,9 +33,9 @@ jobs:
         # went EOL 2025-04-30, so the floor moves rather than the toolchain.
         node: ["20", "22"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -52,15 +57,110 @@ jobs:
         working-directory: typescript
         run: npm run build
 
-      - name: Verify the published tarballs
+  # Packing proves the file list; only installing proves the package. A broken
+  # exports map, a stale `dist`, or a missing type declaration leaves every
+  # source-level test green while the published package is unusable — so this
+  # job consumes the tarballs exactly as a customer would.
+  consumer:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: typescript/package-lock.json
+
+      - name: Build and pack both packages
         working-directory: typescript
-        # Catches an empty or stale `dist` before npm does, and proves the
-        # standalone bundle and the LICENSE are actually in the package.
         run: |
+          npm ci
+          npm run build
+          mkdir -p "$RUNNER_TEMP/tarballs"
           for pkg in sdk browser; do
-            echo "--- @vectoral/$pkg ---"
-            ( cd "packages/$pkg" && npm pack --dry-run )
+            ( cd "packages/$pkg" && npm pack --pack-destination "$RUNNER_TEMP/tarballs" )
           done
-          test -f packages/browser/dist/vectoral-fingerprint.js
-          test -f packages/sdk/LICENSE
-          test -f packages/browser/LICENSE
+          ls -la "$RUNNER_TEMP/tarballs"
+
+      - name: Install the tarballs into a clean project
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir -p consumer && cd consumer
+          npm init -y >/dev/null
+          npm install "$RUNNER_TEMP"/tarballs/*.tgz
+
+      - name: Exercise every advertised entrypoint
+        working-directory: ${{ runner.temp }}/consumer
+        run: |
+          echo "--- ESM ---"
+          node --input-type=module -e '
+            import { Vectoral, computeFingerprint, VectoralError } from "@vectoral/sdk";
+            import { deviceFingerprint, detectAutomation, trackForm, signupSignals } from "@vectoral/browser";
+            const missing = Object.entries({
+              Vectoral, computeFingerprint, VectoralError,
+              deviceFingerprint, detectAutomation, trackForm, signupSignals,
+            }).filter(([, v]) => typeof v !== "function").map(([k]) => k);
+            if (missing.length) { console.error("not callable:", missing.join(", ")); process.exit(1); }
+            console.log("  ok");
+          '
+          echo "--- CJS ---"
+          node -e '
+            const sdk = require("@vectoral/sdk");
+            const browser = require("@vectoral/browser");
+            if (typeof sdk.Vectoral !== "function") { console.error("sdk.Vectoral missing"); process.exit(1); }
+            if (typeof browser.deviceFingerprint !== "function") { console.error("browser.deviceFingerprint missing"); process.exit(1); }
+            console.log("  ok");
+          '
+          echo "--- ./standalone subpath ---"
+          node -e 'console.log("  ", require.resolve("@vectoral/browser/standalone"))'
+          echo "--- LICENSE ships with both ---"
+          test -f node_modules/@vectoral/sdk/LICENSE
+          test -f node_modules/@vectoral/browser/LICENSE
+          echo "  ok"
+
+      - name: Published type declarations resolve under nodenext
+        working-directory: ${{ runner.temp }}/consumer
+        run: |
+          npm install --no-save typescript >/dev/null
+          cat > probe.ts <<'TS'
+          import { Vectoral } from "@vectoral/sdk";
+          import { signupSignals } from "@vectoral/browser";
+          const v: Vectoral = new Vectoral({ apiKey: "k" });
+          export const probe = [v, signupSignals];
+          TS
+          npx tsc --noEmit --strict --module nodenext --moduleResolution nodenext \
+            --target es2022 --skipLibCheck probe.ts
+          echo "  ok"
+
+      - name: The standalone bundle runs and installs its global
+        working-directory: ${{ runner.temp }}/consumer
+        # The IIFE is the one artifact no source-level test can vouch for: it is
+        # produced by a separate tsup config and consumed by a <script> tag.
+        run: |
+          node -e '
+            const fs = require("node:fs"), vm = require("node:vm");
+            const src = fs.readFileSync("node_modules/@vectoral/browser/dist/vectoral-fingerprint.js", "utf8");
+            const sandbox = {
+              crypto, TextEncoder, Promise, console, setTimeout,
+              navigator: { userAgent: "Mozilla/5.0 Chrome/140.0.0.0", platform: "MacIntel",
+                           language: "en-US", languages: ["en-US"], hardwareConcurrency: 8 },
+              screen: { width: 1920, height: 1080, colorDepth: 24 },
+              document: { currentScript: { src: "https://x/vectoral-fingerprint.js",
+                                           dataset: { siteKey: "pk_live_ci" } },
+                          querySelector: () => null,
+                          createElement: () => ({ getContext: () => null }) },
+            };
+            sandbox.globalThis = sandbox; sandbox.window = sandbox;
+            vm.createContext(sandbox);
+            vm.runInContext(src, sandbox);
+            if (!sandbox.vectoralFp) { console.error("global not installed"); process.exit(1); }
+            sandbox.vectoralFp.get().then((r) => {
+              if (!/^fp_[0-9a-f]{32}$/.test(r.fingerprint)) {
+                console.error("bad fingerprint:", r.fingerprint); process.exit(1);
+              }
+              if ("components" in r) { console.error("raw components leaked by default"); process.exit(1); }
+              console.log("  ", r.fingerprint);
+            }).catch((e) => { console.error(e); process.exit(1); });
+          '

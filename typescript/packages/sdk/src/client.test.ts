@@ -469,7 +469,7 @@ describe("second review pass", () => {
     const { fetch } = stubFetch([json({ message: "ok" })]);
     const v = new Vectoral({ apiKey: "k", fetch });
 
-    await expect(v.labels.fraud("user_1")).rejects.toThrow(/not an acknowledgement/);
+    await expect(v.labels.fraud("user_1")).rejects.toThrow(/not acknowledged/);
   });
 
   it("keeps a caller-precomputed prompt_fingerprint instead of overwriting it", async () => {
@@ -502,5 +502,81 @@ describe("second review pass", () => {
     const sent = (calls[0]!.body as { request: { prompt_fingerprint: typeof precomputed } })
       .request.prompt_fingerprint;
     expect(sent).toEqual(precomputed);
+  });
+});
+
+// Third review pass (greptile, PR #2).
+describe("third review pass", () => {
+  const SCORE_OK = {
+    score: 0.1,
+    tier: "low",
+    reasons: [],
+    deep_mode_active: false,
+    baseline_ready: true,
+    shadow_mode: false,
+  };
+
+  it("degrades when a scoring field the caller branches on is missing", async () => {
+    // The documented enforcement guard is
+    // `tier === "high" && baseline_ready && !degraded`. A response missing
+    // `baseline_ready` makes that read false and permits the request while
+    // reporting a healthy verdict — a malformed response must degrade instead.
+    const { baseline_ready: _omitted, ...partial } = SCORE_OK;
+    const { fetch } = stubFetch([json(partial)]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    const verdict = await v.inference.score({ account_id: "u", request: {} });
+
+    expect(verdict.degraded).toBe(true);
+    expect(verdict.error?.code).toBe("invalid_response");
+  });
+
+  it("degrades when reasons is absent entirely", async () => {
+    const { reasons: _omitted, ...partial } = SCORE_OK;
+    const { fetch } = stubFetch([json(partial)]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    expect((await v.inference.score({ account_id: "u", request: {} })).degraded).toBe(true);
+  });
+
+  it("accepts `reasons: null` and normalises it to an empty array", async () => {
+    // Go marshals a nil []string as `null`, so this is the live server's own
+    // shape for "no reasons" — it must not be mistaken for a malformed body.
+    const { fetch } = stubFetch([json({ ...SCORE_OK, reasons: null })]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    const verdict = await v.inference.score({ account_id: "u", request: {} });
+
+    expect(verdict.degraded).toBeFalsy();
+    expect(verdict.reasons).toEqual([]);
+  });
+
+  it("accepts a tier value this SDK version does not know", async () => {
+    // Tiers are an open scale server-side. Validating against a closed
+    // allowlist would fail-open every call the day a new band ships — the
+    // opposite of the bug being fixed here.
+    const { fetch } = stubFetch([json({ ...SCORE_OK, tier: "critical" })]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    const verdict = await v.inference.score({ account_id: "u", request: {} });
+
+    expect(verdict.degraded).toBeFalsy();
+    expect(verdict.tier).toBe("critical");
+  });
+
+  it("rejects a negative acknowledgement rather than resolving", async () => {
+    // Callers treat fulfillment as delivery and only retry on rejection, so
+    // resolving `{ ok: false }` silently drops the write.
+    const { fetch } = stubFetch([json({ ok: false })]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    await expect(v.labels.fraud("user_1")).rejects.toThrow(/not acknowledged/);
+  });
+
+  it("still accepts a genuine acknowledgement", async () => {
+    const { fetch } = stubFetch([json({ ok: true, duplicate: true })]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    expect(await v.labels.fraud("user_1")).toEqual({ ok: true, duplicate: true });
   });
 });

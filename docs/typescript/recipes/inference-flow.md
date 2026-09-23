@@ -40,7 +40,11 @@ export async function guardedCompletion(req: Request, prompt: string) {
       estimated_prompt_tokens: estimateTokens(prompt),
       session_signals: {
         ms_since_last_request: Date.now() - req.session.lastRequestAt,
-        interaction_events_count: req.body.interactionEvents,
+        // Count what YOUR server recorded. Every other field in this block is
+        // server-derived; this one used to come straight off the request body,
+        // and it is the signal that separates scripted traffic from human —
+        // so a caller could inflate it to look human and lower its own score.
+        interaction_events_count: req.session.interactionEvents,
         is_first_request_in_session: req.session.requestCount === 0,
       },
       prompt_text_to_fingerprint: prompt,      // hashed locally, never sent
@@ -104,6 +108,26 @@ Three guards on the branch above, each earning its place:
 
 During the warm-up window `shadow_mode` is `true` and the verdict you see is
 masked clean, so this code is safe to deploy before you are ready to enforce.
+
+### Every signal you send should be one you measured
+
+The verdict is only as trustworthy as its inputs, and a verdict that gates
+enforcement is worth attacking. `session_signals` is the exposed surface:
+`interaction_events_count` is what distinguishes scripted traffic from human,
+so a caller who can set it can lower their own score.
+
+Take these from server-side session state, never from the request body. If a
+value genuinely has to come from the client, clamp it to a sane range and treat
+it as a hint rather than evidence:
+
+```ts
+const events = Math.min(Math.max(Number(req.body.interactionEvents) || 0, 0), 500);
+```
+
+The same applies to anything the browser reports —
+[`registration screening`](../../concepts/registration-screening.md) makes the
+point for `client.fingerprint_anomaly`, and the signup recipe's
+`sanitizeClient()` is the pattern.
 
 Start by logging the distribution of `score` against your own outcomes. Enforce
 only once you have seen it.
