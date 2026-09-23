@@ -1,7 +1,7 @@
 // POST /v1/registrations/score — screen a signup BEFORE the account exists.
 
 import type { Transport } from "../http.js";
-import { VectoralError } from "../errors.js";
+import { VectoralError, notifyError } from "../errors.js";
 
 /** Browser-environment tells, as collected by `@vectoral/browser`. */
 export interface RegistrationClientBlock {
@@ -160,6 +160,17 @@ export class Registrations {
             : {}),
         },
       );
+      // A 2xx body is not automatically a verdict: a proxy or a version-skewed
+      // service can return well-formed JSON with no `tier` at all. Left
+      // unchecked, `undefined >= RegistrationTier.StepUp` is false and the call
+      // reads as a clean allow with `degraded` unset — the one failure the
+      // reliability contract promises is always visible.
+      if (typeof body?.tier !== "number" || typeof body?.score !== "number") {
+        throw new VectoralError(
+          "vectoral: response is not a registration verdict (missing numeric `tier`/`score`)",
+          { code: "invalid_response", status: 200, responseBody: JSON.stringify(body) },
+        );
+      }
       return {
         registration_id: body.registration_id,
         tier: body.tier,
@@ -171,7 +182,7 @@ export class Registrations {
       };
     } catch (err) {
       if (!this.opts.failOpen || !(err instanceof VectoralError)) throw err;
-      this.opts.onError?.(err, "registrations.score");
+      notifyError(this.opts.onError, err, "registrations.score");
       return {
         registration_id: null,
         tier: RegistrationTier.Allow,

@@ -54,10 +54,17 @@ const vectoral = new Vectoral({
 app.post("/api/signup", async (req, res) => {
   const { email, password, signals } = req.body;
 
-  // Create the pending record FIRST: its id is the idempotency key, and it must
-  // survive a retry. A UUID minted here would change on the retry, which is
-  // exactly when it must not.
-  const pending = await db.pendingSignups.create({ id: randomUUID(), email });
+  // The idempotency key must survive a retry, so it cannot be minted here — a
+  // fresh UUID per invocation is a NEW key on the retry, which is exactly when
+  // it must be the same one. Take it from the caller and upsert on it: a retry
+  // finds the existing pending row and reuses its id.
+  const key = req.get("idempotency-key");
+  if (!key) return res.status(400).json({ error: "Idempotency-Key required" });
+
+  const pending = await db.pendingSignups.upsert({
+    where: { customerKey: key },
+    create: { id: randomUUID(), customerKey: key, email },
+  });
 
   const verdict = await vectoral.registrations.score({
     email,
@@ -87,10 +94,15 @@ app.post("/api/signup", async (req, res) => {
 
   const account = await createAccount({ email, password });
   await db.pendingSignups.update(pending.id, { accountId: account.id });
-  await vectoral.identity.linkRegistration(account.id, verdict.registration_id!, {
-    ip: req.ip,
-    event_id: `signup-${account.id}`,
-  });
+  // A degraded verdict has `registration_id: null` and `tier: 0`, so it reaches
+  // here having passed both tier checks. There is nothing to link, and the `!`
+  // assertion would be a compile-time fiction — guard at runtime instead.
+  if (verdict.registration_id) {
+    await vectoral.identity.linkRegistration(account.id, verdict.registration_id, {
+      ip: req.ip,
+      event_id: `signup-${account.id}`,
+    });
+  }
 
   res.json({ action: "allow" });
 });

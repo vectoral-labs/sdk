@@ -299,3 +299,101 @@ describe("telemetry and labels", () => {
     expect(calls[0]!.body).toEqual({ account_id: "user_1", label: "fraud" });
   });
 });
+
+// Findings from the PR #1 review (greptile, all P1). Each test below is the
+// failing case that motivated a fix.
+describe("fail-open holds under hostile conditions", () => {
+  it("survives an onError callback that throws", async () => {
+    // A logging or metrics handler that blows up must not convert a fail-open
+    // verdict into a rejection — that takes down the very flow failOpen exists
+    // to protect.
+    const { fetch } = stubFetch([new TypeError("network down")]);
+    const v = new Vectoral({
+      apiKey: "k",
+      fetch,
+      onError: () => {
+        throw new Error("logger exploded");
+      },
+    });
+
+    const verdict = await v.registrations.score({ email: "a@b.com" });
+
+    expect(verdict.degraded).toBe(true);
+    expect(verdict.tier).toBe(RegistrationTier.Allow);
+  });
+
+  it("survives a throwing onError on inference.score too", async () => {
+    const { fetch } = stubFetch([new TypeError("network down")]);
+    const v = new Vectoral({
+      apiKey: "k",
+      fetch,
+      onError: () => {
+        throw new Error("logger exploded");
+      },
+    });
+
+    const verdict = await v.inference.score({ account_id: "user_1", request: {} });
+
+    expect(verdict.degraded).toBe(true);
+  });
+
+  it("degrades on a 2xx registration body with no numeric tier", async () => {
+    // A proxy or version-skewed backend can return well-formed JSON that is not
+    // a verdict. `undefined >= RegistrationTier.StepUp` is false, so an
+    // unvalidated body reads as a clean allow with degraded unset — the one
+    // outcome the reliability contract promises cannot happen silently.
+    const { fetch } = stubFetch([json({ registration_id: "reg_1" })]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    const verdict = await v.registrations.score({ email: "a@b.com" });
+
+    expect(verdict.degraded).toBe(true);
+    expect(verdict.error?.code).toBe("invalid_response");
+  });
+
+  it("degrades on a 2xx inference body with no numeric score", async () => {
+    const { fetch } = stubFetch([json({ tier: "low" })]);
+    const v = new Vectoral({ apiKey: "k", fetch });
+
+    const verdict = await v.inference.score({ account_id: "user_1", request: {} });
+
+    expect(verdict.degraded).toBe(true);
+    expect(verdict.error?.code).toBe("invalid_response");
+  });
+
+  it(
+    "times out when the body stalls after the headers arrive",
+    async () => {
+      // Models a server or proxy that sends headers then hangs mid-body. Real
+      // fetch cancels the body stream on abort, so the stub wires the signal to
+      // the stream the same way.
+      const stallingFetch = async (
+        _url: string,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const body = new ReadableStream({
+          start(controller) {
+            init?.signal?.addEventListener("abort", () =>
+              controller.error(new DOMException("aborted", "AbortError")),
+            );
+          },
+        });
+        return new Response(body, {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+      const v = new Vectoral({
+        apiKey: "k",
+        fetch: stallingFetch as unknown as typeof fetch,
+        timeoutMs: 50,
+      });
+
+      const verdict = await v.registrations.score({ email: "a@b.com" });
+
+      expect(verdict.degraded).toBe(true);
+      expect(verdict.error?.code).toBe("timeout");
+    },
+    2000,
+  );
+});

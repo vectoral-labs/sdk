@@ -1,7 +1,7 @@
 // POST /v1/score and POST /v1/events/post-call — the per-inference pair.
 
 import type { Transport } from "../http.js";
-import { VectoralError } from "../errors.js";
+import { VectoralError, notifyError } from "../errors.js";
 import type { ResolvedFingerprintConfig } from "../salt.js";
 import { computeFingerprint, conversationKey } from "../fingerprint/index.js";
 
@@ -199,14 +199,24 @@ export class Inference {
   /** Pre-call risk score. Call before invoking the LLM. */
   async score(req: ScoreRequest): Promise<ScoreResponse> {
     try {
-      return await this.transport.post<ScoreResponse>(
+      const body = await this.transport.post<ScoreResponse>(
         "/v1/score",
         this.prepare(req),
         { idempotent: false },
       );
+      // See the matching check in registrations.score(): syntactically valid
+      // JSON is not proof of a verdict, and a silent pass-through would hand
+      // the caller a score of `undefined` with `degraded` unset.
+      if (typeof body?.score !== "number" || typeof body?.tier !== "string") {
+        throw new VectoralError(
+          "vectoral: response is not a score verdict (missing numeric `score` / string `tier`)",
+          { code: "invalid_response", status: 200, responseBody: JSON.stringify(body) },
+        );
+      }
+      return body;
     } catch (err) {
       if (!this.opts.failOpen || !(err instanceof VectoralError)) throw err;
-      this.opts.onError?.(err, "inference.score");
+      notifyError(this.opts.onError, err, "inference.score");
       return { ...FAIL_OPEN_SCORE, error: err };
     }
   }

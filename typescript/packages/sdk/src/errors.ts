@@ -43,6 +43,26 @@ export class VectoralError extends Error {
   }
 }
 
+/**
+ * Invoke a caller-supplied error callback, swallowing anything it throws.
+ *
+ * `onError` runs on the fail-open path, so a logging or metrics handler that
+ * blows up would otherwise convert the degraded verdict into a rejection —
+ * taking down the very flow `failOpen` exists to protect. The failure is not
+ * lost: the verdict still carries `degraded: true` and the underlying `error`.
+ */
+export function notifyError(
+  cb: ((err: VectoralError, context: string) => void) | undefined,
+  err: VectoralError,
+  context: string,
+): void {
+  try {
+    cb?.(err, context);
+  } catch {
+    // Deliberately empty — see above.
+  }
+}
+
 /** Thrown at construction time for a misconfigured client. Never at call time. */
 export class VectoralConfigError extends Error {
   constructor(message: string) {

@@ -59,6 +59,34 @@ export class Transport {
   private async doPost<T>(url: string, body: unknown, timeoutMs: number): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // The timer must stay armed until the BODY is consumed, not just until the
+    // headers land. A server or proxy that sends headers and then stalls
+    // mid-body would otherwise hang this call forever: no timeout, no retry,
+    // and no fail-open verdict for a flow that is waiting on one.
+    try {
+      return await this.send<T>(url, body, controller, timeoutMs);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async send<T>(
+    url: string,
+    body: unknown,
+    controller: AbortController,
+    timeoutMs: number,
+  ): Promise<T> {
+    const failed = (err: unknown): VectoralError =>
+      controller.signal.aborted
+        ? new VectoralError(`request timed out after ${timeoutMs}ms`, {
+            code: "timeout",
+            status: 0,
+            cause: err,
+          })
+        : new VectoralError(
+            `network error: ${err instanceof Error ? err.message : String(err)}`,
+            { code: "network_error", status: 0, cause: err },
+          );
 
     let res: Response;
     try {
@@ -73,22 +101,16 @@ export class Transport {
         signal: controller.signal,
       });
     } catch (err) {
-      if (controller.signal.aborted) {
-        throw new VectoralError(`request timed out after ${timeoutMs}ms`, {
-          code: "timeout",
-          status: 0,
-          cause: err,
-        });
-      }
-      throw new VectoralError(
-        `network error: ${err instanceof Error ? err.message : String(err)}`,
-        { code: "network_error", status: 0, cause: err },
-      );
-    } finally {
-      clearTimeout(timer);
+      throw failed(err);
     }
 
-    const text = await res.text();
+    let text: string;
+    try {
+      text = await res.text();
+    } catch (err) {
+      // Headers arrived, then the body stalled or the stream broke.
+      throw failed(err);
+    }
 
     if (!res.ok) {
       let message = res.statusText;
