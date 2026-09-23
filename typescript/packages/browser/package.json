@@ -1,0 +1,26 @@
+{
+  "name": "@vectoral/browser",
+  "version": "0.1.0",
+  "description": "Browser-side signal collection for Vectoral: device fingerprint, automation tells, and form-fill telemetry.",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsup",
+    "typecheck": "tsc --noEmit"
+  }
+}

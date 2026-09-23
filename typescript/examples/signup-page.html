@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  Browser-side collection, standalone. Open it directly in a browser:
+
+      cd typescript && npm run build && npx http-server . -p 4000
+      open http://localhost:4000/examples/signup-page.html
+
+  Nothing is posted anywhere — submitting prints the payload your backend would
+  receive. That payload is exactly what `registrations.score()` accepts.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vectoral browser SDK — signup signals</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 42rem; margin: 3rem auto; padding: 0 1rem; }
+      label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
+      input { width: 100%; padding: 0.5rem; font: inherit; }
+      button { margin-top: 1rem; padding: 0.5rem 1rem; font: inherit; }
+      pre { background: #f4f4f5; padding: 1rem; overflow-x: auto; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Signup signals</h1>
+    <p>
+      Fill this in the way a person would, then submit. Try it again pasting
+      every field — watch <code>pasted</code> and <code>keystrokes</code> change.
+    </p>
+
+    <form id="signup">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="off" />
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="off" />
+      <button type="submit">Create account</button>
+    </form>
+
+    <h2>What your backend would receive</h2>
+    <pre id="out">(submit the form)</pre>
+
+    <script type="module">
+      import { trackForm, signupSignals } from "../packages/browser/dist/index.js";
+
+      const form = document.querySelector("#signup");
+      // Tracking starts on load, not at submit: the evidence is HOW the form
+      // was filled, which has already happened by the time submit fires.
+      const tracker = trackForm(form);
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const signals = await signupSignals({
+          siteKey: "pk_live_example",   // publishable; safe in page source
+          form: tracker,
+        });
+        document.querySelector("#out").textContent = JSON.stringify(
+          { email: form.email.value, signals },
+          null,
+          2,
+        );
+      });
+    </script>
+  </body>
+</html>
