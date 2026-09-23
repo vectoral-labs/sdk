@@ -1,0 +1,63 @@
+name: CI
+
+# Gates every push and PR on the three things a publish depends on: the tests
+# pass, the types check, and both packages actually build. `dist/` is gitignored,
+# so the build step is the only proof the published artifact can be produced.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 18 is the floor declared in `engines`; 22 is what most consumers run.
+        node: ["18", "22"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: typescript/package-lock.json
+
+      - name: Install
+        working-directory: typescript
+        run: npm ci
+
+      - name: Test
+        working-directory: typescript
+        run: npm test
+
+      - name: Typecheck
+        working-directory: typescript
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: typescript
+        run: npm run build
+
+      - name: Verify the published tarballs
+        working-directory: typescript
+        # Catches an empty or stale `dist` before npm does, and proves the
+        # standalone bundle and the LICENSE are actually in the package.
+        run: |
+          for pkg in sdk browser; do
+            echo "--- @vectoral/$pkg ---"
+            ( cd "packages/$pkg" && npm pack --dry-run )
+          done
+          test -f packages/browser/dist/vectoral-fingerprint.js
+          test -f packages/sdk/LICENSE
+          test -f packages/browser/LICENSE

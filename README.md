@@ -44,10 +44,39 @@ forwards.
 
 ## Status
 
-Prototype. Both packages are `private` and unpublished; the API surface is
-expected to move. The prompt-fingerprint implementation is a port of the
-normative Go one and is verified against its golden vectors — see
+`0.x`. Both packages publish under the **`beta`** dist-tag, so `npm install
+@vectoral/sdk` will not pick them up as `latest` — ask for `@beta` explicitly.
+The API surface is expected to move.
+
+The prompt-fingerprint implementation is a port of the normative Go one and is
+verified against its golden vectors — see
 [`docs/concepts/fingerprinting.md`](docs/concepts/fingerprinting.md).
+
+### One endpoint is not deployed yet
+
+`registrations.score()` and everything feeding it — `device_fingerprint`, the
+`client` block, the `form` block — target `POST /v1/registrations/score`, which
+is **not yet live**. It is absent from the public OpenAPI spec and from the
+deployed API. The SDK surface, its types, and its docs are all complete and
+tested, but calls will fail until the endpoint ships.
+
+Everything else — `inference.score()`, `postCall()`, `identity`, `labels`,
+prompt fingerprinting, and the whole of `@vectoral/browser` — runs against the
+live API today.
+
+## Releasing
+
+CI gates every PR on tests, typecheck, build, and a `npm pack --dry-run` of both
+packages. To cut a release:
+
+```bash
+cd typescript
+npm version <patch|minor|major> --workspaces
+npm publish --workspaces          # prepublishOnly rebuilds dist first
+```
+
+`dist/` is gitignored, so `prepublishOnly` is what guarantees the tarball holds
+fresh bytes. Never publish with a dirty tree.
 
 ## Development
 
