@@ -55,8 +55,7 @@ verified against its golden vectors — see
 ### Endpoint coverage
 
 Every endpoint the SDK calls is live on the deployed API, including
-`POST /v1/registrations/score`. Note that the public OpenAPI spec currently
-lags the deployed service and does not list that route yet.
+`POST /v1/registrations/score`.
 
 Not yet wrapped by the SDK: `POST /v1/registrations/{id}/label` (registration-level
 labels, distinct from the account labels `vectoral.labels` covers),
