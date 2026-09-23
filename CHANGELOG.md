@@ -18,6 +18,10 @@ the project follows [Semantic Versioning](https://semver.org/) — with the usua
 
 ### Changed
 
+- **Minimum Node is now 20.** It was declared as 18, but the test toolchain
+  never ran there: vitest 4 pulls in rolldown, which imports `styleText` from
+  `node:util` — added in Node 20.12 and absent from every 18.x. Node 18 reached
+  end of life on 2025-04-30, so the floor moves rather than the toolchain.
 - `@vectoral/browser`: `signupSignals().client.webdriver` is now **optional**. It
   is present only when the browser actually reported `navigator.webdriver`;
   previously an unmeasured value was reported as a measured `false`.

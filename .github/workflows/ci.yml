@@ -22,8 +22,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 18 is the floor declared in `engines`; 22 is what most consumers run.
-        node: ["18", "22"]
+        # 20 is the floor declared in `engines`; 22 is the current LTS.
+        # Not 18: vitest 4 pulls in rolldown, which imports `styleText` from
+        # `node:util` — added in Node 20.12 and absent from every 18.x. Node 18
+        # went EOL 2025-04-30, so the floor moves rather than the toolchain.
+        node: ["20", "22"]
     steps:
       - uses: actions/checkout@v4
 
