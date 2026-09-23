@@ -15,6 +15,9 @@ the project follows [Semantic Versioning](https://semver.org/) — with the usua
   Exposes `window.vectoralFp`, reads `data-site-key` off its own script tag, and
   produces the same salted value as the npm entry point. Posts nothing.
 - Apache-2.0 license, CI, and package metadata required to publish.
+- Release workflow using npm trusted publishing (OIDC). No `NPM_TOKEN` exists in
+  the repository or its secrets; provenance attestations are generated
+  automatically, tying each tarball to the commit and workflow that built it.
 
 ### Changed
 
