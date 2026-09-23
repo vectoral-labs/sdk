@@ -140,21 +140,36 @@ describe("install", () => {
     await expect(api.get()).rejects.toThrow(/siteKey/);
   });
 
+  /**
+   * A queue callback plus a promise that settles when it fires.
+   *
+   * Deliberately NOT `setTimeout(0)`: the callback resolves behind
+   * `SubtleCrypto.digest()`, so the number of ticks it takes is a property of
+   * the runtime, not of this code. Sleeping a fixed amount passed on Node 22
+   * and failed on Node 20. Waiting for the actual signal is correct on both.
+   */
+  function captureCallback() {
+    let fire!: (r: { err: unknown; value: { fingerprint: string } | undefined }) => void;
+    const fired = new Promise<{ err: unknown; value: { fingerprint: string } | undefined }>(
+      (resolve) => {
+        fire = resolve;
+      },
+    );
+    const cb = (err: unknown, value: { fingerprint: string } | undefined): void =>
+      fire({ err, value });
+    return { cb, fired };
+  }
+
   it("flushes calls queued before the async bundle loaded", async () => {
     browserWithScript(scriptEl("https://x/f.js", { siteKey: "pk_live_a" }));
-    const seen: { err: unknown; value: { fingerprint: string } | undefined }[] = [];
-    stubs.set(GLOBAL_NAME, {
-      q: [["get", undefined, (err: unknown, value: { fingerprint: string } | undefined) =>
-        seen.push({ err, value })]],
-    });
+    const { cb, fired } = captureCallback();
+    stubs.set(GLOBAL_NAME, { q: [["get", undefined, cb]] });
 
     install();
-    await new Promise((r) => setTimeout(r, 0));
 
-    const [first] = seen;
-    expect(seen).toHaveLength(1);
-    expect(first?.err).toBeNull();
-    expect(first?.value?.fingerprint).toMatch(/^fp_[0-9a-f]{32}$/);
+    const first = await fired;
+    expect(first.err).toBeNull();
+    expect(first.value?.fingerprint).toMatch(/^fp_[0-9a-f]{32}$/);
   });
 
   it("runs calls pushed to the queue after the bundle already loaded", async () => {
@@ -164,16 +179,13 @@ describe("install", () => {
     browserWithScript(scriptEl("https://x/f.js", { siteKey: "pk_live_a" }));
     install();
     const api = stubs.get(GLOBAL_NAME) as { q: { push: (e: unknown) => void } };
-    const seen: { err: unknown; value: { fingerprint: string } | undefined }[] = [];
+    const { cb, fired } = captureCallback();
 
-    api.q.push(["get", undefined, (err: unknown, value: { fingerprint: string } | undefined) =>
-      seen.push({ err, value })]);
-    await new Promise((r) => setTimeout(r, 0));
+    api.q.push(["get", undefined, cb]);
 
-    const [first] = seen;
-    expect(seen).toHaveLength(1);
-    expect(first?.err).toBeNull();
-    expect(first?.value?.fingerprint).toMatch(/^fp_[0-9a-f]{32}$/);
+    const first = await fired;
+    expect(first.err).toBeNull();
+    expect(first.value?.fingerprint).toMatch(/^fp_[0-9a-f]{32}$/);
   });
 
   it("leaves the sensor's `window.vectoral` untouched", () => {

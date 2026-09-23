@@ -430,10 +430,17 @@ describe("second review pass", () => {
   it("still raises the timeout above a deadline larger than timeoutMs", async () => {
     // The original intent must survive: a deadline above the configured
     // timeout still wins, or we abort a server that was about to answer.
-    const slowFetch = async (): Promise<Response> => {
-      await new Promise((r) => setTimeout(r, 400));
-      return json(REG_OK);
-    };
+    // Honours the abort signal like real fetch. A stub that ignored it could
+    // never degrade, so this test would pass even if the timeout regressed to
+    // the 100ms `timeoutMs` — proving nothing.
+    const slowFetch = (_url: string, init?: RequestInit): Promise<Response> =>
+      new Promise((resolve, reject) => {
+        const t = setTimeout(() => resolve(json(REG_OK)), 400);
+        init?.signal?.addEventListener("abort", () => {
+          clearTimeout(t);
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      });
     const v = new Vectoral({
       apiKey: "k",
       fetch: slowFetch as unknown as typeof fetch,
