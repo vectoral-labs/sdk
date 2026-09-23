@@ -1,0 +1,81 @@
+<!doctype html>
+<!--
+  The standalone drop-in, with no bundler anywhere. Open it directly:
+
+      cd typescript && npm run build && npx http-server . -p 4000
+      open http://localhost:4000/examples/fingerprint-standalone.html
+
+  Nothing is posted anywhere. The script computes a fingerprint and hands it to
+  the page; forwarding it to YOUR backend is your job — see examples/full-flow.ts
+  for what the backend then does with it.
+
+  Compare with signup-page.html, which does the same thing through the npm
+  package. Both produce the same value for the same site key.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vectoral browser SDK — standalone fingerprint</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 42rem; margin: 3rem auto; padding: 0 1rem; }
+      pre { background: #f4f4f5; padding: 1rem; overflow-x: auto; border-radius: 4px; }
+      code { background: #f4f4f5; padding: 0.1rem 0.3rem; border-radius: 3px; }
+      .fp { font-size: 1.1rem; font-weight: 600; }
+    </style>
+
+    <!--
+      The whole integration. `data-site-key` is your PUBLISHABLE key — it is
+      meant to be readable in page source, and it salts the fingerprint so your
+      values cannot be joined against another tenant's. Never put a secret here.
+
+      `async` is safe: calls queued on `vectoralFp.q` before the file lands are
+      flushed once it does (demonstrated below).
+    -->
+    <script
+      async
+      src="../packages/browser/dist/vectoral-fingerprint.js"
+      data-site-key="pk_live_example"
+    ></script>
+  </head>
+  <body>
+    <h1>Standalone fingerprint</h1>
+    <p>
+      One <code>&lt;script&gt;</code> tag, no build step. Reload the page — the
+      value stays the same. Change <code>data-site-key</code> and it changes
+      completely, because the key is the salt.
+    </p>
+
+    <p class="fp" id="fp">computing…</p>
+
+    <h2>Full result</h2>
+    <pre id="out"></pre>
+
+    <p>
+      <code>components</code> is absent on purpose. Add
+      <code>data-debug="true"</code> to the script tag to see the raw probe
+      values — and never send those anywhere.
+    </p>
+
+    <script>
+      // The queue pattern, for an `async` script tag: push work now, it runs
+      // whenever the bundle finishes loading. Drop this if you load the script
+      // synchronously and just call `window.vectoralFp.get()` directly.
+      window.vectoralFp = window.vectoralFp || { q: [] };
+      window.vectoralFp.q.push([
+        "get",
+        null,
+        (err, result) => {
+          if (err) {
+            document.querySelector("#fp").textContent = "failed: " + err.message;
+            return;
+          }
+          document.querySelector("#fp").textContent = result.fingerprint;
+          document.querySelector("#out").textContent = JSON.stringify(result, null, 2);
+
+          // This is the value your backend forwards as `device_fingerprint`.
+          // Post it to your OWN endpoint, never to Vectoral directly.
+        },
+      ]);
+    </script>
+  </body>
+</html>

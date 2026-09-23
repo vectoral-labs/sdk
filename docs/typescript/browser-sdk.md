@@ -1,10 +1,17 @@
 # `@vectoral/browser` reference
 
-Browser-side signal collection. Zero dependencies, side-effect free, and it
-**never talks to Vectoral** — post its output to your own backend.
+Browser-side signal collection. Zero dependencies, and it **never talks to
+Vectoral** — post its output to your own backend.
 
 The only credential it takes is your publishable site key, which salts the
 device fingerprint. Never put a secret here; see [salts](../concepts/salts.md).
+
+Two ways to load it, both producing the same values:
+
+- **npm**, for anything with a bundler. The `import` entry is side-effect free.
+  Everything below describes this.
+- **[a standalone `<script>` tag](#standalone-build--no-bundler)**, for sites
+  without a build step. Fingerprint only.
 
 ## `signupSignals(options) → Promise<SignupSignals>`
 
@@ -179,10 +186,79 @@ named by `name`, then `id`, then `type`.
 `FormTelemetry` is exported for driving the same accounting from a framework
 that does not hand you a DOM node.
 
+## Standalone build — no bundler
+
+`dist/vectoral-fingerprint.js` is a single self-executing file for sites that
+cannot `npm install` anything. It computes **the same fingerprint** as
+`deviceFingerprint()` — same salted SHA-256, same components, same value — and
+like the rest of this package it posts nothing anywhere.
+
+```html
+<script
+  async
+  src="/vectoral-fingerprint.js"
+  data-site-key="pk_live_abc"
+></script>
+```
+
+```js
+const { fingerprint, strong, coverage } = await window.vectoralFp.get();
+// fp_9c1e4a7b… — identical to what the npm entry returns for this site key
+```
+
+Host the file yourself; it is not published to a CDN. ~4 KB minified, with a
+sourcemap beside it so the served bytes stay auditable.
+
+| | |
+| --- | --- |
+| `data-site-key` | Required. Also accepted as `?siteKey=` on the script URL |
+| `data-debug` | `"true"` adds `components` to the result. Debugging only |
+| `window.vectoralFp.get()` | Resolves the fingerprint. Computes once, then reuses |
+| `window.vectoralFp.version` | The API shape's version, not the fingerprint's |
+
+`components` is **withheld unless you ask for it**. A global on a live page puts
+raw probe values one `JSON.stringify` away from being posted somewhere they
+should not go.
+
+### Loading it `async`
+
+Load order is not knowable with `async`, so queue the call instead of assuming
+the bundle has landed:
+
+```html
+<script>
+  window.vectoralFp = window.vectoralFp || { q: [] };
+  vectoralFp.q.push(["get", null, (err, fp) => {
+    if (!err) console.log(fp.fingerprint);
+  }]);
+</script>
+```
+
+This works whichever order the two scripts run in — `q.push` executes
+immediately once the bundle is present. Loading synchronously instead? Just call
+`window.vectoralFp.get()`.
+
+### Why the global is `vectoralFp`
+
+The hosted sensor (below) assigns `window.vectoral` outright rather than merging
+into it, so sharing that name would let load order decide which script survives.
+A separate global lets both run on the same page.
+
+See [`examples/fingerprint-standalone.html`](../../typescript/examples/fingerprint-standalone.html).
+
 ## Not in this package
 
-The hosted browser sensor (`cdn.vectoral.cloud/v1/sensor.js`) is a separate,
-script-tag integration that posts to Vectoral directly and returns a signed
-`sensor_token`. This package is the npm-installable, bundler-friendly
-alternative that reports to your own backend. Use one or the other; if you use
-the sensor, pass its token as `sensor_token`.
+The hosted browser sensor (`cdn.vectoral.cloud/v1/sensor.js`) posts to Vectoral
+directly and returns a signed `sensor_token`, which your backend forwards to
+join the browser's bot verdict to a score. That is the difference that matters —
+**transport, not packaging**: everything here reports to *your* backend and
+talks to Vectoral never, whether you load it from npm or from a script tag.
+
+The sensor is the only path to a `sensor_token`, and it carries behavioural
+telemetry (pointer movement, interaction timing) that this package does not
+collect. The two are complementary inputs to the same registration call, not
+alternatives — pass `device_fingerprint` from here and `sensor_token` from
+there.
+
+Note that the sensor computes its own, **different** device fingerprint
+internally. Do not compare the two values; they are not the same function.

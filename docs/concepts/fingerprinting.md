@@ -21,6 +21,9 @@ const { fingerprint, strong, coverage } = await deviceFingerprint({
 // fingerprint -> "fp_9c1e4a7b…"
 ```
 
+No bundler? The same function ships as a standalone `<script>` tag — see the
+[browser SDK reference](../typescript/browser-sdk.md#standalone-build--no-bundler).
+
 Send it to your backend, which forwards it as `device_fingerprint`. It is the
 **highest-value optional field on a registration**: one device across many
 signups is the strongest farm signal that exists, and it is invisible without
