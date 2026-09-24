@@ -1,6 +1,6 @@
 {
   "name": "@vectoral-labs/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Server-side TypeScript SDK for Vectoral: registration screening, inference scoring, and prompt fingerprinting.",
   "license": "Apache-2.0",
   "type": "module",
