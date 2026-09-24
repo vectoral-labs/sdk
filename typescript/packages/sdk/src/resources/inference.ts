@@ -203,9 +203,11 @@ export interface ScoreRequest {
    * twice.
    *
    * The replay is NOT byte-identical: `baseline_ready` and `blocked` are not
-   * restored and come back `false`. Do not make an enforcement decision on a
-   * response carrying `duplicate: true` without allowing for that. This is
-   * also why `score()` does not retry internally even when you set this.
+   * restored and come back `false` however the original came out. `score`,
+   * `tier` and `reasons` ARE restored, so enforce a `duplicate: true` response
+   * on those — a block forces `tier` to `high` before the verdict is stored.
+   * This is also why `score()` does not retry internally even when you set
+   * this.
    */
   event_id?: string;
 }
