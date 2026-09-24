@@ -53,12 +53,16 @@ export async function guardedCompletion(req: Request, prompt: string) {
   });
 
   if (verdict.duplicate) {
-    // A replay restores `score`, `tier` and `reasons` from the stored verdict
-    // but NOT `blocked` or `baseline_ready`, which come back false however the
-    // original came out. Enforce from what was actually restored — a blocked
-    // account persisted `tier: "high"` and an `account_blocked` reason, so
-    // this still catches it.
-    if (verdict.tier === "high") throw new AbuseError(verdict.reasons);
+    // A replay drops `blocked` and `baseline_ready`. Both can be rebuilt from
+    // what it does restore: hard controls name themselves in `reasons`, and
+    // `baseline_ready` is exactly the inverse of the restored `shadow_mode`.
+    const hardControl = verdict.reasons.some(
+      (r) => r === "account_blocked" || r.startsWith("spend_cap_exceeded"),
+    );
+    if (hardControl) throw new AbuseError(verdict.reasons);
+    if (verdict.tier === "high" && !verdict.shadow_mode) {
+      throw new AbuseError(verdict.reasons);
+    }
   } else {
     // A hard control is not a risk judgement, so it is not subject to the
     // warm-up guard below. Refuse it unconditionally.
@@ -113,14 +117,21 @@ budget is tight: it happens after the user already has their answer.
 ## Enforcement, carefully
 
 **Replays are handled separately, and must be.** If you send an `event_id` and
-your own caller retries, the second response is a replay: `score`, `tier` and
-`reasons` are the original, but `blocked` and `baseline_ready` are not restored
-and arrive `false` whatever they really were. Run a replay through the guards
-below and both pass — a blocked account gets served. Enforce a replay on `tier`,
-which is restored, and which a block forces to `high` before it is persisted.
+your own caller retries, the second response is a replay: `score`, `tier`,
+`reasons` and `shadow_mode` are the original, but `blocked` and `baseline_ready`
+are not restored and arrive `false` whatever they really were.
+
+Run a replay through the guards below and both pass, so a blocked account gets
+served. Refusing on `tier` alone overcorrects the other way — a merely risky
+verdict replayed during warm-up would be refused when the same verdict, not
+replayed, is allowed, so a retry would turn an allowed request into an error.
+
+Both lost fields can be rebuilt from what survives. Hard controls name
+themselves in `reasons` (`account_blocked`, `spend_cap_exceeded:*`), and
+`baseline_ready` is exactly the inverse of `shadow_mode`, which is restored.
 
 If you do not send `event_id`, `duplicate` is never true and this branch costs
-you nothing.
+you nothing. That is a reasonable reason not to send one.
 
 The `blocked` check comes first and deliberately sits outside the guards below.
 `blocked` means you or your spend caps already decided — a manual block or a
