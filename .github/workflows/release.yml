@@ -15,9 +15,16 @@ name: Release
 #   Workflow filename    : release.yml
 #   Environment          : (leave blank — see the note at the bottom)
 #
-# Release by pushing a tag that matches the version in package.json:
-#   npm version <patch|minor|major> --workspaces --include-workspace-root
-#   git push && git push --tags
+# Release by pushing a tag that matches the version in package.json. `main` is
+# protected, so the bump goes through a PR and the tag is pushed afterwards —
+# see AGENTS.md for the full procedure.
+#
+#   npm version <patch|minor|major> --workspaces --no-git-tag-version
+#   # ...PR, review, merge, then from main:
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+#
+# NOT --include-workspace-root: the workspace root is private and has no
+# `version`, so including it invents one that is never published and drifts.
 on:
   push:
     tags: ["v*"]
