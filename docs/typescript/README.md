@@ -3,12 +3,14 @@
 Two packages. Which one you need depends on where the code runs.
 
 ```bash
-npm install @vectoral-labs/sdk       # your server
-npm install @vectoral-labs/browser   # your signup/app pages
+npm install @vectoral-labs/sdk@beta       # your server
+npm install @vectoral-labs/browser@beta   # your signup/app pages
 ```
 
-> **Prototype.** Both are `private` and unpublished. For now, consume them from
-> the workspace at `typescript/packages/`.
+> **`@beta` is not optional.** Both packages publish under the `beta` dist-tag
+> while the API surface settles, so neither is `latest` — the same command
+> without `@beta` resolves nothing at all. See
+> [Status](../../README.md#status).
 
 ## Server, in three lines
 
