@@ -146,10 +146,17 @@ will match a label that happens to share one, and blame the SDK for a leak that
 did not happen. Prefer stable internal labels, and never put user-supplied text
 in these fields.
 
-The prompt itself is the exception and the one that matters: when you use
-`prompt_text_to_fingerprint`, the text is hashed in-process and **only the
-fingerprint** is sent. Verify it on your own wire if you like — the raw text is
-not in the body.
+The prompt itself is the exception and the one that matters.
+`prompt_text_to_fingerprint` is **always** stripped before the request is built —
+whether or not fingerprinting is configured — so the raw text is never in the
+body. Verify it on your own wire if you like.
+
+What is *not* unconditional is the fingerprint. One is computed and attached only
+when fingerprinting is configured, the call actually carries text, and that text
+clears the 8-token floor — below it there is not enough to hash stably, so
+nothing is sent rather than something noisy. The SDK warns once via `onWarning`
+in the first two cases, so a misconfiguration surfaces instead of looking like
+clean traffic. See [fingerprinting](fingerprinting.md).
 
 ### `session_signals` has three states, not two
 

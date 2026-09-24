@@ -30,18 +30,23 @@ They are undeliverable in two different ways, and both are caught:
   **null MX** (RFC 7505) — an explicit, standards-mandated declaration that the
   domain accepts no mail.
 - `.test`, `.invalid`, `.localhost` and `.example` are special-use names
-  (RFC 2606, RFC 6761) that are **not delegated at all**, so they fail to resolve
-  rather than resolving to a refusal.
+  (RFC 2606, RFC 6761) that no registry may allocate, so **no mail host can
+  exist** under them. `.test`, `.invalid` and `.example` simply fail to resolve;
+  `.localhost` is the odd one out — address queries answer with the loopback
+  address by specification, while every other query type, `MX` included, gets a
+  negative response. Different mechanics, same conclusion: nothing to deliver to.
 
 On its own that is a floor under the score rather than a tier: one clean signup
 on a reserved domain still lands at tier 0 under the default bands. What it costs
 you is the ability to read the number — the signal you came to evaluate is
 underneath a constant you introduced.
 
-Repetition is what pushes it over. The domain accumulates history **inside your
-tenant**, so after a few dozen synthetic signups the same address space also
-carries `disposable_email` and `email_reputation`, and tier 0 does become
-unreachable.
+Repetition is what can push it over. The domain accumulates history **inside your
+tenant**, so once enough synthetic signups match on it the same address space
+also carries `disposable_email` and `email_reputation` — and with those stacked
+on top, tier 0 may stop being reachable. How quickly depends on how much of your
+traffic on that domain looked bad, and on your own tier floors; there is no fixed
+count at which it flips.
 
 Use a domain you control, or a plausible one you do not send mail to. Nothing in
 this documentation uses a reserved domain, for this reason.
@@ -108,11 +113,12 @@ sit between them.
 - **Some floors raise the score; others raise only the tier.** Device reuse and
   address permutation are the first kind — each carries a hard floor that lifts
   the *score* itself, far enough under the default bands to reach tier 2, so they
-  are visible in the number. Being one of many is the second kind: any
-  correlation signal lifts a low-scoring registration to the challenge tier and
-  **no further**, without touching the score. That second kind is invisible in
-  `score`, which is why two registrations with the same score can sit in
-  different tiers, and a lower-scoring one can sit higher.
+  are visible in the number. Being one of many is the second kind: a correlation
+  signal that did *not* raise the score — a burst, or a scripted-looking client —
+  lifts the registration to the challenge tier and **no further**, leaving the
+  score alone. That second kind is invisible in `score`, which is why two
+  registrations with the same score can sit in different tiers, and a
+  lower-scoring one can sit higher.
 - **Both layers are yours to configure.** The band cuts, and a per-signal tier
   floor for each of `email_infrastructure`, `fresh_domain`, `disposable_email`,
   `email_reputation`, `registration_wave`, `device_reuse`, `client_automation`

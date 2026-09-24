@@ -32,12 +32,14 @@ if (!process.env.VECTORAL_API_KEY || !baseUrl) {
 
 // Reserved names from RFC 2606 and RFC 6761. None of them can receive mail,
 // which is exactly what the `email_infrastructure` signal detects — the two
-// lists are undeliverable in different ways and both are caught. The example
-// domains are delegated and publish a null MX (RFC 7505), an explicit refusal
-// of mail; the special-use TLDs are not delegated at all and simply fail to
-// resolve. Either way an address on one can never produce a clean verdict, so
-// this example used to open by demonstrating a signal firing and calling it a
-// demo.
+// lists get there by different routes and both are caught. The example domains
+// are delegated and publish a null MX (RFC 7505), an explicit refusal of mail.
+// The special-use TLDs are ones no registry may allocate, so no mail host can
+// exist under them: `.test`, `.invalid` and `.example` fail to resolve, while
+// `.localhost` answers address queries with the loopback address and returns a
+// negative response to every other query type, MX included. Either way an
+// address on one can never produce a clean score, so this example used to open
+// by demonstrating a signal firing and calling it a demo.
 const RESERVED_DOMAINS = ["example.com", "example.net", "example.org"];
 const RESERVED_TLDS = ["example", "invalid", "localhost", "test"];
 
@@ -47,10 +49,14 @@ const isReserved = (domain: string): boolean =>
   RESERVED_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`)) ||
   RESERVED_TLDS.some((t) => domain === t || domain.endsWith(`.${t}`));
 
+// Normalised before the check, not after: `@Example.COM.` is the same name as
+// `example.com`, and a reserved-name check that a trailing root dot walks past
+// is a check that reports the opposite of the truth.
 const emailDomain = (process.env.VECTORAL_DEMO_EMAIL_DOMAIN ?? "")
   .trim()
   .toLowerCase()
-  .replace(/^@/, "");
+  .replace(/^@/, "")
+  .replace(/\.+$/, "");
 
 if (!emailDomain) {
   console.error(
@@ -58,10 +64,11 @@ if (!emailDomain) {
       "\n" +
       "There is no safe default. A reserved domain (example.com and friends) cannot\n" +
       "receive mail, so it trips email_infrastructure on every run and no signup can\n" +
-      "reach tier 0 — and after enough runs the domain also picks up disposable_email\n" +
-      "and email_reputation inside your tenant, permanently. Any other fixed default\n" +
-      "would put every reader's demo traffic on one domain, which is the same problem\n" +
-      "with a worse blast radius.",
+      "produce a clean score — and after enough runs the domain also picks up\n" +
+      "disposable_email and email_reputation inside your tenant, which does take it\n" +
+      "out of tier 0. That decays on its own (seven days), but not inside the session\n" +
+      "you are testing in. Any other fixed default would put every reader's demo\n" +
+      "traffic on one domain, which is the same problem with a worse blast radius.",
   );
   process.exit(1);
 }
