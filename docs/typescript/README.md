@@ -3,8 +3,8 @@
 Two packages. Which one you need depends on where the code runs.
 
 ```bash
-npm install @vectoral/sdk       # your server
-npm install @vectoral/browser   # your signup/app pages
+npm install @vectoral-labs/sdk       # your server
+npm install @vectoral-labs/browser   # your signup/app pages
 ```
 
 > **Prototype.** Both are `private` and unpublished. For now, consume them from
@@ -13,7 +13,7 @@ npm install @vectoral/browser   # your signup/app pages
 ## Server, in three lines
 
 ```ts
-import { Vectoral } from "@vectoral/sdk";
+import { Vectoral } from "@vectoral-labs/sdk";
 
 const vectoral = new Vectoral({ apiKey: process.env.VECTORAL_API_KEY });
 
@@ -56,7 +56,7 @@ Self-hosted deployments running in header auth mode pass `customerId` instead of
 ## Browser, in three lines
 
 ```js
-import { signupSignals, trackForm } from "@vectoral/browser";
+import { signupSignals, trackForm } from "@vectoral-labs/browser";
 
 const tracker = trackForm(document.querySelector("#signup"));
 // at submit:
@@ -68,9 +68,9 @@ it into the score call, where the IP it observed is added.
 
 ## Runtime support
 
-- **`@vectoral/sdk`** — Node 18+, Deno, Bun, and edge runtimes. Needs a global
+- **`@vectoral-labs/sdk`** — Node 18+, Deno, Bun, and edge runtimes. Needs a global
   `fetch`, or pass one via the `fetch` option. ESM and CJS builds ship.
-- **`@vectoral/browser`** — any modern browser. No dependencies, no Node
+- **`@vectoral-labs/browser`** — any modern browser. No dependencies, no Node
   builtins, side-effect free. `deviceFingerprint()` prefers SubtleCrypto and
   falls back on insecure origins.
 

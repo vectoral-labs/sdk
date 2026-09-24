@@ -19,8 +19,8 @@ deploy without breaking your own funnel.
 | Page | What it covers |
 | --- | --- |
 | [Quickstart](typescript/README.md) | Install, configure, first call |
-| [Server SDK](typescript/server-sdk.md) | `@vectoral/sdk` reference |
-| [Browser SDK](typescript/browser-sdk.md) | `@vectoral/browser` reference |
+| [Server SDK](typescript/server-sdk.md) | `@vectoral-labs/sdk` reference |
+| [Browser SDK](typescript/browser-sdk.md) | `@vectoral-labs/browser` reference |
 | [Recipe: signup flow](typescript/recipes/signup-flow.md) | End-to-end screening, browser through to label |
 | [Recipe: inference flow](typescript/recipes/inference-flow.md) | Score, call the model, report the cost |
 

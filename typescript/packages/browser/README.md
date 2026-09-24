@@ -1,4 +1,4 @@
-# `@vectoral/browser`
+# `@vectoral-labs/browser`
 
 Browser-side signal collection for [Vectoral](https://vectoral.cloud): device
 fingerprint, automation tells, and form-fill telemetry.
@@ -7,11 +7,11 @@ Zero dependencies. Holds no secrets, and **never talks to Vectoral** — it hand
 values to your page, and your backend forwards them.
 
 ```bash
-npm install @vectoral/browser@beta
+npm install @vectoral-labs/browser@beta
 ```
 
 ```js
-import { trackForm, signupSignals } from "@vectoral/browser";
+import { trackForm, signupSignals } from "@vectoral-labs/browser";
 
 const tracker = trackForm(document.querySelector("#signup"));
 
@@ -42,7 +42,7 @@ The file is `dist/vectoral-fingerprint.js` in this package — host it yourself.
 
 - [Browser SDK reference](https://github.com/vectoral-labs/sdk/blob/main/docs/typescript/browser-sdk.md)
 - [What the signals mean](https://github.com/vectoral-labs/sdk/blob/main/docs/concepts/fingerprinting.md)
-- Server-side counterpart: [`@vectoral/sdk`](https://www.npmjs.com/package/@vectoral/sdk)
+- Server-side counterpart: [`@vectoral-labs/sdk`](https://www.npmjs.com/package/@vectoral-labs/sdk)
 
 ## Status
 

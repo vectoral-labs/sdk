@@ -73,9 +73,9 @@ jobs:
           tag="${GITHUB_REF_NAME#v}"
           for pkg in sdk browser; do
             ver=$(node -p "require('./packages/$pkg/package.json').version")
-            echo "  @vectoral/$pkg is $ver, tag is $tag"
+            echo "  @vectoral-labs/$pkg is $ver, tag is $tag"
             if [ "$ver" != "$tag" ]; then
-              echo "::error::@vectoral/$pkg is $ver but the tag says $tag"
+              echo "::error::@vectoral-labs/$pkg is $ver but the tag says $tag"
               exit 1
             fi
           done
@@ -109,7 +109,7 @@ jobs:
       - name: Confirm what landed
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         run: |
-          for pkg in @vectoral/sdk @vectoral/browser; do
+          for pkg in @vectoral-labs/sdk @vectoral-labs/browser; do
             echo "--- $pkg ---"
             npm view "$pkg" dist-tags version --json || true
           done

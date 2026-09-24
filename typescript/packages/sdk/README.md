@@ -1,17 +1,17 @@
-# `@vectoral/sdk`
+# `@vectoral-labs/sdk`
 
 Server-side SDK for the [Vectoral](https://vectoral.cloud) fraud-scoring API.
 
 **Server-side only.** It carries a secret API key, and the client IP it sends is
 only meaningful when your own server observed it. Browser-side collection lives
-in [`@vectoral/browser`](https://www.npmjs.com/package/@vectoral/browser).
+in [`@vectoral-labs/browser`](https://www.npmjs.com/package/@vectoral-labs/browser).
 
 ```bash
-npm install @vectoral/sdk@beta
+npm install @vectoral-labs/sdk@beta
 ```
 
 ```ts
-import { Vectoral } from "@vectoral/sdk";
+import { Vectoral } from "@vectoral-labs/sdk";
 
 const vectoral = new Vectoral({
   apiKey: process.env.VECTORAL_API_KEY,

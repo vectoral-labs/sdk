@@ -11,8 +11,8 @@ docs/                 all documentation
   concepts/           language-neutral: what the signals mean, how to roll out
   typescript/         TypeScript guides and API reference
 typescript/           the TypeScript packages (npm workspace)
-  packages/sdk/       @vectoral/sdk      — server-side
-  packages/browser/   @vectoral/browser  — browser-side
+  packages/sdk/       @vectoral-labs/sdk      — server-side
+  packages/browser/   @vectoral-labs/browser  — browser-side
 scripts/              maintenance tooling
 ```
 
@@ -22,7 +22,7 @@ sibling folder in both trees: `docs/python/` alongside `python/`.
 
 ## Two packages, one trust boundary
 
-| | `@vectoral/sdk` | `@vectoral/browser` |
+| | `@vectoral-labs/sdk` | `@vectoral-labs/browser` |
 | --- | --- | --- |
 | Runs | on your server | in the end user's browser |
 | Credential | secret API key (`vg_live_…`) | publishable site key (`pk_live_…`) |
@@ -45,7 +45,7 @@ forwards.
 ## Status
 
 `0.x`. Both packages publish under the **`beta`** dist-tag, so `npm install
-@vectoral/sdk` will not pick them up as `latest` — ask for `@beta` explicitly.
+@vectoral-labs/sdk` will not pick them up as `latest` — ask for `@beta` explicitly.
 The API surface is expected to move.
 
 The prompt-fingerprint implementation is a port of the normative Go one and is

@@ -1,4 +1,4 @@
-// @vectoral/browser — browser-side signal collection for Vectoral.
+// @vectoral-labs/browser — browser-side signal collection for Vectoral.
 //
 //   deviceFingerprint()  a stable, tenant-scoped id for this browser
 //   detectAutomation()   automation tells + an environment-inconsistency score
@@ -8,7 +8,7 @@
 // This package holds NO secrets: the only credential it takes is your
 // publishable site key, which salts the device fingerprint so values are scoped
 // to your tenant. It never talks to Vectoral — post its output to your own
-// backend and forward it from there with @vectoral/sdk.
+// backend and forward it from there with @vectoral-labs/sdk.
 
 export { deviceFingerprint } from "./device.js";
 export type { DeviceFingerprint, DeviceFingerprintOptions } from "./device.js";

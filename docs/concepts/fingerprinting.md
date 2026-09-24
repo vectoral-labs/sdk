@@ -6,7 +6,7 @@ run in different places, carry different trust, and use different salts.
 | | Device fingerprint | Prompt fingerprint |
 | --- | --- | --- |
 | Identifies | a browser | a piece of text |
-| Runs in | the browser (`@vectoral/browser`) | your server (`@vectoral/sdk`) |
+| Runs in | the browser (`@vectoral-labs/browser`) | your server (`@vectoral-labs/sdk`) |
 | Salt | publishable site key | secret tenant salt |
 | Answers | "have I seen this device before?" | "have I seen this prompt before?" |
 | Trust | soft — attacker-controlled | strong — computed by you |
@@ -14,7 +14,7 @@ run in different places, carry different trust, and use different salts.
 ## Device fingerprints
 
 ```js
-import { deviceFingerprint } from "@vectoral/browser";
+import { deviceFingerprint } from "@vectoral-labs/browser";
 const { fingerprint, strong, coverage } = await deviceFingerprint({
   siteKey: "pk_live_abc",
 });

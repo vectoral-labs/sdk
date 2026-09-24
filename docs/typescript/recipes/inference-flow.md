@@ -6,7 +6,7 @@ work with.
 ## The wrapper
 
 ```ts
-import { Vectoral, VectoralError } from "@vectoral/sdk";
+import { Vectoral, VectoralError } from "@vectoral-labs/sdk";
 
 const vectoral = new Vectoral({
   apiKey: process.env.VECTORAL_API_KEY,

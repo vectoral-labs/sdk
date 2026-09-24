@@ -111,7 +111,7 @@ belong to a score that was not the one acted on.
 ### Browser signals
 
 Present only when a verified sensor token was fused into this score. If you have
-not deployed `@vectoral/browser`, you will never see one.
+not deployed `@vectoral-labs/browser`, you will never see one.
 
 `webdriver_present`, `automation_signature`, `headless_browser`,
 `no_accept_languages`, `missing_chrome_object`, `no_human_interaction`,

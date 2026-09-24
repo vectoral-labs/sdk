@@ -1,4 +1,4 @@
-# `@vectoral/browser` reference
+# `@vectoral-labs/browser` reference
 
 Browser-side signal collection. Zero dependencies, and it **never talks to
 Vectoral** — post its output to your own backend.
@@ -20,7 +20,7 @@ and the form snapshot, and returns them already shaped for the registration
 endpoint.
 
 ```js
-import { trackForm, signupSignals } from "@vectoral/browser";
+import { trackForm, signupSignals } from "@vectoral-labs/browser";
 
 const tracker = trackForm(document.querySelector("#signup"));
 

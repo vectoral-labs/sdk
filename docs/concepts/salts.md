@@ -15,7 +15,7 @@ There are three tiers, and the SDK uses a different one in each place.
 
 ## Why the browser gets a publishable salt
 
-`@vectoral/browser` salts the device fingerprint with your **site key**, which is
+`@vectoral-labs/browser` salts the device fingerprint with your **site key**, which is
 public — it ships in your page source.
 
 That is not an oversight. A secret shipped to the browser is not a secret; it is
@@ -65,7 +65,7 @@ Generate a salt once, with `generateSalt()`, and store it in your secret
 manager:
 
 ```ts
-import { generateSalt, suggestSaltId } from "@vectoral/sdk";
+import { generateSalt, suggestSaltId } from "@vectoral-labs/sdk";
 console.log(generateSalt(), suggestSaltId()); // -> 64 hex chars, "s_2026_09"
 ```
 

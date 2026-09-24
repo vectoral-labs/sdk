@@ -1,5 +1,5 @@
 {
-  "name": "@vectoral/browser",
+  "name": "@vectoral-labs/browser",
   "version": "0.1.0",
   "description": "Browser-side signal collection for Vectoral: device fingerprint, automation tells, and form-fill telemetry.",
   "license": "Apache-2.0",
