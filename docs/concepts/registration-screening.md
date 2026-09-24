@@ -19,13 +19,19 @@ Two things will make a healthy integration look broken, and both happen during
 evaluation rather than in production. Read this section before your first run —
 it is cheaper than the afternoon it otherwise costs.
 
-**Do not test with `@example.com`.** Reserved domains — `example.com`,
-`example.net`, `example.org`, and anything under `.test`, `.invalid`,
-`.localhost` or `.example` — publish a **null MX record**. That is a deliberate,
-standards-mandated declaration that the domain cannot receive mail, and it is
-precisely what `email_infrastructure` exists to detect. So it fires on every
-signup you send, unconditionally, and a perfectly clean test registration can
-never reach tier 0.
+**Do not test with `@example.com`.** Reserved names cannot receive mail, and
+non-deliverability is precisely what `email_infrastructure` exists to detect. So
+it fires on every signup you send, unconditionally, and a perfectly clean test
+registration can never reach tier 0.
+
+They are undeliverable in two different ways, and both are caught:
+
+- `example.com`, `example.net` and `example.org` are delegated and publish a
+  **null MX** (RFC 7505) — an explicit, standards-mandated declaration that the
+  domain accepts no mail.
+- `.test`, `.invalid`, `.localhost` and `.example` are special-use names
+  (RFC 2606, RFC 6761) that are **not delegated at all**, so they fail to resolve
+  rather than resolving to a refusal.
 
 It also gets worse the more you test. The domain accumulates history **inside
 your tenant**: after a few dozen synthetic signups the same address space starts

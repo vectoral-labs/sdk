@@ -30,11 +30,14 @@ if (!process.env.VECTORAL_API_KEY || !baseUrl) {
   process.exit(1);
 }
 
-// Reserved names from RFC 2606 and RFC 6761. Every one of them publishes a null
-// MX — a standards-mandated declaration that the domain cannot receive mail —
-// which is exactly what the `email_infrastructure` signal detects. An address on
-// one of these can never produce a clean verdict, so this example used to open
-// by demonstrating a signal firing and calling it a demo.
+// Reserved names from RFC 2606 and RFC 6761. None of them can receive mail,
+// which is exactly what the `email_infrastructure` signal detects — the two
+// lists are undeliverable in different ways and both are caught. The example
+// domains are delegated and publish a null MX (RFC 7505), an explicit refusal
+// of mail; the special-use TLDs are not delegated at all and simply fail to
+// resolve. Either way an address on one can never produce a clean verdict, so
+// this example used to open by demonstrating a signal firing and calling it a
+// demo.
 const RESERVED_DOMAINS = ["example.com", "example.net", "example.org"];
 const RESERVED_TLDS = ["example", "invalid", "localhost", "test"];
 
@@ -67,7 +70,7 @@ if (isReserved(emailDomain)) {
   console.error(
     `VECTORAL_DEMO_EMAIL_DOMAIN=${emailDomain} is a reserved domain.\n` +
       "\n" +
-      "Reserved domains publish a null MX, so email_infrastructure fires on every\n" +
+      "Reserved names cannot receive mail, so email_infrastructure fires on every\n" +
       "signup and the verdicts you are about to read would tell you nothing about\n" +
       "the rest of what you sent. Use a domain you control.",
   );

@@ -64,7 +64,7 @@ for what each is worth.
 | --- | --- |
 | `registration_id` | Pass to `identity.linkRegistration()`. `null` when `degraded` |
 | `tier` | Open ordered scale. **Compare, never switch** |
-| `score` | `[0,1]`. For logging, and for policy layered *on top of* `tier` — **`tier` is not a threshold on it** ([why](../concepts/registration-screening.md#score-is-not-the-tier-and-you-cannot-recompute-one-from-the-other)) |
+| `score` | `[0,1]`. For logging, and for policy layered *on top of* `tier` — **`tier` is not determined by score alone and cannot be recomputed from it** ([why](../concepts/registration-screening.md#score-is-not-the-tier-and-you-cannot-recompute-one-from-the-other)) |
 | `reasons` | Up to three, most significant first. Never `null` — `[]` instead |
 | `duplicate` | True on an idempotent replay |
 | `shadow_mode` | True during warm-up, when `tier` is pinned to `0` |
