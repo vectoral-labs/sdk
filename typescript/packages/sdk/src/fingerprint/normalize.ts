@@ -1,4 +1,4 @@
-// Normative normalization pipeline — port of internal/fingerprint/normalize.go.
+// Normative normalization pipeline — a port of the Go implementation.
 // Order is binding: NFKC → full lowercase → digit bucketing → whitespace split
 // → head-kept cap. Bit-exactness is enforced by the golden-vector test.
 

@@ -7,3 +7,8 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Editor and IDE state — local to a machine, not to the project.
+.idea/
+.vscode/
+*.swp

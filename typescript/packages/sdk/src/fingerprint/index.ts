@@ -1,4 +1,4 @@
-// Public fingerprint API — port of internal/fingerprint/fingerprint.go
+// Public fingerprint API — a port of the normative Go implementation
 // (Compute + ConversationKey). Output fields are already in wire encoding
 // (hex / base64 / decimal strings) so the client attaches them directly.
 

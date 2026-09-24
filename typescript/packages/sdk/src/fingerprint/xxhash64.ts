@@ -1,5 +1,5 @@
 // Seeded xxHash64 in BigInt — a direct port of the normative Go
-// implementation (internal/fingerprint/xxhash.go). Bit-exactness with Go and
+// implementation. Bit-exactness with Go and
 // Python is enforced by the golden-vector test; any change here that alters
 // output is a breaking algo_version bump.
 
