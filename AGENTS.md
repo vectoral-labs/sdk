@@ -94,13 +94,18 @@ The tag can be — the ruleset targets branches, not tags.
 ```bash
 git switch -c release/vX.Y.Z
 cd typescript
-npm version <patch|minor|major> --workspaces --include-workspace-root --no-git-tag-version
+npm version <patch|minor|major> --workspaces --no-git-tag-version
 cd .. && git commit -am "chore(release): vX.Y.Z"
 git push -u origin release/vX.Y.Z
 ```
 
-`--no-git-tag-version` is deliberate: the tag is pushed after the PR merges, so
-it points at what actually landed on `main`.
+Two deliberate omissions in that command:
+
+- **`--no-git-tag-version`**, because the tag is pushed after the PR merges, so
+  it points at what actually landed on `main`.
+- **no `--include-workspace-root`.** The workspace root is private and carries no
+  `version` at all; including it injects one (`0.0.1`) that is never published
+  and immediately starts drifting from the real versions.
 
 Open the PR, get it to 5/5, merge. Then:
 
