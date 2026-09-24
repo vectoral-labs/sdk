@@ -5,13 +5,54 @@ actions: let it through, challenge it, or ask for a payment instrument.
 
 ```ts
 const verdict = await vectoral.registrations.score({
-  email: "john.smith@example.com",
+  email: "john.smith@acmecorp.co.uk",
   ip: req.ip,
   event_id: pendingSignup.id,
 });
 ```
 
 `email` is the only required field.
+
+## Before you test this
+
+Two things will make a healthy integration look broken, and both happen during
+evaluation rather than in production. Read this section before your first run —
+it is cheaper than the afternoon it otherwise costs.
+
+**Do not test with `@example.com`.** Reserved domains — `example.com`,
+`example.net`, `example.org`, and anything under `.test`, `.invalid`,
+`.localhost` or `.example` — publish a **null MX record**. That is a deliberate,
+standards-mandated declaration that the domain cannot receive mail, and it is
+precisely what `email_infrastructure` exists to detect. So it fires on every
+signup you send, unconditionally, and a perfectly clean test registration can
+never reach tier 0.
+
+It also gets worse the more you test. The domain accumulates history **inside
+your tenant**: after a few dozen synthetic signups the same address space starts
+carrying `disposable_email` and `email_reputation` as well, and tier 0 becomes
+unreachable on that domain for good. You cannot undo it by waiting.
+
+Use a domain you control, or a plausible one you do not send mail to. Nothing in
+this documentation uses a reserved domain, for this reason.
+
+**Your integration testing is itself a registration wave.** Twenty synthetic
+signups in ten minutes, from one or two origins, with names varying by a
+counter, is an extremely good imitation of a signup farm — so `registration_wave`
+and `address_permutation` fire, and they are correlation signals, which means
+they then apply to *every* subsequent signup in the window including the
+deliberately clean one you were using as a control.
+
+The scoring is correct. The timing is unfortunate: it lands at the exact moment
+someone is deciding whether this product works. What works instead:
+
+- fresh, non-permuted identities per run — real-looking names, not `user001…user020`
+- a different email domain per run
+- space the runs out, or accept that the first minutes of a burst are correlated
+- keep one control identity that you send **before** the burst, not during it
+
+The general form of both: correlation compares this signup against your other
+signups, so **what you send changes what you get back next time**. That is the
+feature. It just also applies to your test traffic.
 
 ## Acting on the tier
 
@@ -33,13 +74,39 @@ return createAccount();
 A client that compares keeps working when a tier is added. One that switches on
 an exhaustive `0 | 1 | 2` silently falls through.
 
-`score` is the underlying `[0,1]` risk value. You do not need it to integrate —
-it is there so you can tune your own thresholds or apply a stricter policy than
-the tiers imply.
+### `score` is not the tier, and you cannot recompute one from the other
+
+`score` is a `[0,1]` risk value, reported so you can log it, watch its
+distribution, and apply a policy *stricter* than the tier — refusing a trial
+above `0.8`, say, even though that is still tier 1.
+
+**Do not reimplement the banding from it.** Plotting the two against each other
+will suggest you can: the tier does start as a band on the score. But two things
+sit between them.
+
+- **Floors raise the tier without raising the score.** Being one of many is the
+  built-in case: a signup that is part of a burst, a device that has registered
+  before, or a family of permuted addresses is lifted to at least `1` no matter
+  how low its score is. This is why you will see a `0.2` at tier 1 next to a
+  `0.4` at tier 0, and conclude the scale is noisy when it is not.
+- **Both layers are yours to configure.** The band cuts, and a per-signal tier
+  floor for each of `email_infrastructure`, `fresh_domain`, `disposable_email`,
+  `email_reputation`, `registration_wave`, `device_reuse`, `client_automation`
+  and `free_provider`, are settings on your account. Thresholds you hardcode
+  today are thresholds that silently disagree with your own settings page
+  tomorrow.
+
+So a `score → tier` table derived by observation is a second, competing policy
+that drifts from the real one without ever erroring. Act on `tier`; keep `score`
+for your logs and for policy you deliberately layer *on top of* the tier.
 
 `reasons` names up to three contributing factors, most significant first. Useful
 in your logs and in support conversations; **do not branch on them**, as the set
-will grow.
+will grow — a new code can ship server-side without an SDK release or an API
+version bump.
+
+These are registration reasons. [Inference scoring](inference-scoring.md) has a
+completely separate vocabulary; the two never mix in one response.
 
 | Reason | What it means |
 | --- | --- |
@@ -129,7 +196,10 @@ never abort locally on a server that was about to answer.
    the wiring without challenging anybody.
 2. **Check the distribution.** After real traffic, count how many signups land in
    each tier. If a large share are tier 1 or 2, do not start enforcing —
-   something in what you are sending is probably misleading us. Ask.
+   something in what you are sending is probably misleading us. Ask. Measure it
+   on real traffic, not on the synthetic runs from
+   [before you test this](#before-you-test-this), whose distribution is a
+   property of how they were generated.
 3. **Enforce the top tier first.** Act on `tier >= 2` only. Smallest population,
    friction most justified.
 4. **Then challenge.** Add `tier >= 1` behind a percentage rollout, and watch

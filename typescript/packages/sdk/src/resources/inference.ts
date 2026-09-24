@@ -10,40 +10,72 @@ import { computeFingerprint, conversationKey } from "../fingerprint/index.js";
 export type Tier = "low" | "medium" | "high";
 
 /**
- * Reason codes that can appear in a score response. The server returns at most
- * three, ordered by contribution. The `(string & {})` member keeps this a
- * closed union for autocomplete while still accepting codes added server-side
- * after this SDK was published.
+ * Reason codes that can appear in a score response, as a hint for autocomplete.
+ *
+ * **This list is not exhaustive and cannot be made exhaustive.** Reasons are
+ * produced by the scoring algorithm running server-side, which ships
+ * independently of this package — a new one can appear in a response without an
+ * SDK release. The `(string & {})` member is what makes that safe: an unlisted
+ * code type-checks. It is also why you must not write an exhaustive `switch`
+ * over this type, and why `reasons` is for your logs and support conversations
+ * rather than for branching. `tier` is the field to act on.
+ *
+ * The server returns at most three, ordered by contribution.
+ *
+ * Listed below by where the code comes from, because the three groups behave
+ * differently — an operational code means the verdict was overridden and the
+ * algorithm's opinion is not what you are looking at. See
+ * `docs/concepts/inference-scoring.md` for what each one means.
  */
 export type ReasonCode =
-  // cost & consumption
-  | "token_velocity_inhuman_burst"
-  | "token_velocity_sustained_1h"
-  | "robotic_timing"
-  | "instant_first_ai_call"
-  | "content_generation_ratio"
-  | "always_on_pattern"
-  | "no_user_interaction"
-  // network
-  | "datacenter_ip"
-  | "ip_rotation"
-  | "sybil_ip_cluster"
-  // behavior
-  | "tight_gap_distribution"
-  | "fragmented_sessions"
-  | "seven_day_activity"
-  // catch-all
-  | "insufficient_data"
-  | "no_significant_signals"
-  | "model_prediction"
-  | "shadow_mode"
+  // Account behaviour — the scoring algorithm's own findings. These are the
+  // ordinary case, and the group that grows.
+  | "machine_paced"
+  | "hidden_telemetry"
+  | "birth_cohort"
+  | "probing"
+  | "resource_shape"
+  | "value_extraction"
+  | "resource_extraction"
+  | "datacenter_origin"
+  | "account_risk"
+  | "synthetic_noop"
+  // Operational — these do not come from the algorithm. They are prepended when
+  // something overrode or replaced the verdict, so they lead the list when they
+  // appear, and the codes after them may be from a score that was not acted on.
+  | "account_blocked"
+  | "spend_cap_exceeded:account"
+  | "spend_cap_exceeded:org"
+  | "scoring_unavailable"
+  | "reputation_discount"
+  // Browser signals — present only when a verified sensor token was fused into
+  // this score. Absent entirely if you have not deployed `@vectoral/browser`.
+  | "webdriver_present"
+  | "automation_signature"
+  | "headless_browser"
+  | "no_accept_languages"
+  | "missing_chrome_object"
+  | "no_human_interaction"
+  | "no_pointer_activity"
+  | "cursor_teleport"
+  | "thin_fingerprint"
   | (string & {});
 
-/** Account-context block. All fields optional but recommended. */
+/**
+ * Account-context block. All fields optional but recommended.
+ *
+ * Both fields are sent verbatim in the request body — this block is context you
+ * supply, not something derived from the prompt. Worth knowing if anything on
+ * your egress path inspects outgoing bodies: a label you chose will appear in
+ * them as plain text. See `docs/concepts/inference-scoring.md`.
+ */
 export interface AccountBlock {
   /** RFC 3339 timestamp of when the account first existed in your system. */
   first_seen?: string;
-  /** Free-form tier label, e.g. "free" | "pro" | "enterprise". */
+  /**
+   * Free-form tier label, e.g. "free" | "pro" | "enterprise". Sent as given;
+   * use a stable internal label rather than anything user-supplied.
+   */
   subscription_tier?: string;
 }
 

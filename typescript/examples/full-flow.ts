@@ -2,9 +2,16 @@
 // inference call, report its cost, and label the account.
 //
 //   VECTORAL_API_KEY=… VECTORAL_BASE_URL=http://localhost:8080 \
+//     VECTORAL_DEMO_EMAIL_DOMAIN=demo.yourcompany.com \
 //     npx tsx examples/full-flow.ts
 //
 // Point it at a local dev instance, not production — it writes real rows.
+//
+// Run it back to back a dozen times and you will build a registration wave:
+// same origin, same domain, local parts that differ by a random suffix. The
+// correlation signals are supposed to catch that, and they will, including on
+// the run you meant to be clean. See docs/concepts/registration-screening.md,
+// "Before you test this".
 
 import { randomUUID } from "node:crypto";
 import {
@@ -19,6 +26,50 @@ const baseUrl = process.env.VECTORAL_BASE_URL;
 if (!process.env.VECTORAL_API_KEY || !baseUrl) {
   console.error(
     "Set VECTORAL_API_KEY and VECTORAL_BASE_URL (a dev instance, not production).",
+  );
+  process.exit(1);
+}
+
+// Reserved names from RFC 2606 and RFC 6761. Every one of them publishes a null
+// MX — a standards-mandated declaration that the domain cannot receive mail —
+// which is exactly what the `email_infrastructure` signal detects. An address on
+// one of these can never produce a clean verdict, so this example used to open
+// by demonstrating a signal firing and calling it a demo.
+const RESERVED_DOMAINS = ["example.com", "example.net", "example.org"];
+const RESERVED_TLDS = ["example", "invalid", "localhost", "test"];
+
+// Matched on label boundaries, never as a bare substring: `mail.example.com` is
+// reserved and `notexample.com` is a perfectly ordinary domain somebody owns.
+const isReserved = (domain: string): boolean =>
+  RESERVED_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`)) ||
+  RESERVED_TLDS.some((t) => domain === t || domain.endsWith(`.${t}`));
+
+const emailDomain = (process.env.VECTORAL_DEMO_EMAIL_DOMAIN ?? "")
+  .trim()
+  .toLowerCase()
+  .replace(/^@/, "");
+
+if (!emailDomain) {
+  console.error(
+    "Set VECTORAL_DEMO_EMAIL_DOMAIN to a domain you control, e.g. demo.yourcompany.com.\n" +
+      "\n" +
+      "There is no safe default. A reserved domain (example.com and friends) cannot\n" +
+      "receive mail, so it trips email_infrastructure on every run and no signup can\n" +
+      "reach tier 0 — and after enough runs the domain also picks up disposable_email\n" +
+      "and email_reputation inside your tenant, permanently. Any other fixed default\n" +
+      "would put every reader's demo traffic on one domain, which is the same problem\n" +
+      "with a worse blast radius.",
+  );
+  process.exit(1);
+}
+
+if (isReserved(emailDomain)) {
+  console.error(
+    `VECTORAL_DEMO_EMAIL_DOMAIN=${emailDomain} is a reserved domain.\n` +
+      "\n" +
+      "Reserved domains publish a null MX, so email_infrastructure fires on every\n" +
+      "signup and the verdicts you are about to read would tell you nothing about\n" +
+      "the rest of what you sent. Use a domain you control.",
   );
   process.exit(1);
 }
@@ -43,7 +94,7 @@ const pendingSignupId = randomUUID();
 // 1 — screen the registration, before the account exists.
 console.log("1. registrations.score");
 const verdict = await vectoral.registrations.score({
-  email: `${accountId}@example.com`,
+  email: `${accountId}@${emailDomain}`,
   event_id: pendingSignupId,
   ip: "203.0.113.47",
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/140.0.0.0",

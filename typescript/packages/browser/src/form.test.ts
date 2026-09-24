@@ -117,6 +117,26 @@ describe("trackForm", () => {
     ]);
   });
 
+  it("skips buttons, which take focus but are not fields", () => {
+    const form = fakeForm();
+    const tracker = trackForm(form, { now: () => 0 });
+    // How it reaches us in practice: no name, no id, so the name chain would
+    // have fallen through to `type` and reported a field called "submit".
+    form.fire("focusin", { target: { type: "submit" } });
+    form.fire("keydown", { target: { type: "submit" }, key: "Enter" });
+    // A <button> defaults to type="submit"; type="button" and "reset" too.
+    form.fire("keydown", { target: { name: "save", type: "button" }, key: "a" });
+    form.fire("keydown", { target: { id: "clear", type: "reset" }, key: "a" });
+    expect(tracker.snapshot().fields).toEqual({});
+  });
+
+  it("still tracks a text field that happens to be named submit", () => {
+    const form = fakeForm();
+    const tracker = trackForm(form, { now: () => 0 });
+    form.fire("keydown", { target: { name: "submit", type: "text" }, key: "a" });
+    expect(tracker.snapshot().fields["submit"]!.keystrokes).toBe(1);
+  });
+
   it("treats an insertFromPaste input event as a paste", () => {
     const form = fakeForm();
     const tracker = trackForm(form, { now: () => 0 });

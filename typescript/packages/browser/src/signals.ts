@@ -56,14 +56,20 @@ export interface SignupSignals {
 export async function signupSignals(
   opts: SignupSignalsOptions,
 ): Promise<SignupSignals> {
-  const [device, automation] = [
-    await deviceFingerprint({ siteKey: opts.siteKey }),
-    detectAutomation(
-      opts.automationThreshold !== undefined
-        ? { threshold: opts.automationThreshold }
-        : {},
-    ),
-  ];
+  // Written as two statements, not array-destructured from a literal. The
+  // destructured form read as if the two ran concurrently; it never did —
+  // array literals evaluate left to right, so the `await` completed before
+  // `detectAutomation` was called. That was correct only because
+  // `detectAutomation` is synchronous, and it would have silently become a
+  // serialised round trip the day it gained an `await` of its own. Plain
+  // statements say what actually happens; if these ever both become async,
+  // `Promise.all` is the change to make and it will be obvious that it is one.
+  const device = await deviceFingerprint({ siteKey: opts.siteKey });
+  const automation = detectAutomation(
+    opts.automationThreshold !== undefined
+      ? { threshold: opts.automationThreshold }
+      : {},
+  );
   const formSnapshot = opts.form?.snapshot();
   const tz = timezone();
   const webdriver = safe(() => nav().webdriver, undefined);
