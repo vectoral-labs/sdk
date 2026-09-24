@@ -2,9 +2,16 @@
 // inference call, report its cost, and label the account.
 //
 //   VECTORAL_API_KEY=… VECTORAL_BASE_URL=http://localhost:8080 \
+//     VECTORAL_DEMO_EMAIL_DOMAIN=demo.yourcompany.com \
 //     npx tsx examples/full-flow.ts
 //
 // Point it at a local dev instance, not production — it writes real rows.
+//
+// Run it back to back a dozen times and you will build a registration wave:
+// same origin, same domain, local parts that differ by a random suffix. The
+// correlation signals are supposed to catch that, and they will, including on
+// the run you meant to be clean. See docs/concepts/registration-screening.md,
+// "Before you test this".
 
 import { randomUUID } from "node:crypto";
 import {
@@ -19,6 +26,62 @@ const baseUrl = process.env.VECTORAL_BASE_URL;
 if (!process.env.VECTORAL_API_KEY || !baseUrl) {
   console.error(
     "Set VECTORAL_API_KEY and VECTORAL_BASE_URL (a dev instance, not production).",
+  );
+  process.exit(1);
+}
+
+// Reserved names from RFC 2606 and RFC 6761. None of them can receive mail,
+// which is exactly what the `email_infrastructure` signal detects — the two
+// lists get there by different routes and both are caught. The example domains
+// are delegated and publish a null MX (RFC 7505), an explicit refusal of mail.
+// The special-use TLDs have no public delegation, so on an ordinary deployment
+// there is no mail host to find: `.invalid` and `.example` have nothing to
+// resolve at all, and `.localhost` answers address queries with the loopback
+// address while returning a negative response to every other query type (MX
+// included). `.test` is the one to avoid most — a self-hosted install whose
+// resolver serves a private `.test` zone can answer the lookup, so the signal
+// may not fire at all and a clean result proves nothing. Undeliverable or
+// unpredictable, neither is a demo, which is what this example used to be.
+const RESERVED_DOMAINS = ["example.com", "example.net", "example.org"];
+const RESERVED_TLDS = ["example", "invalid", "localhost", "test"];
+
+// Matched on label boundaries, never as a bare substring: `mail.example.com` is
+// reserved and `notexample.com` is a perfectly ordinary domain somebody owns.
+const isReserved = (domain: string): boolean =>
+  RESERVED_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`)) ||
+  RESERVED_TLDS.some((t) => domain === t || domain.endsWith(`.${t}`));
+
+// Normalised before the check, not after: `@Example.COM.` is the same name as
+// `example.com`, and a reserved-name check that a trailing root dot walks past
+// is a check that reports the opposite of the truth.
+const emailDomain = (process.env.VECTORAL_DEMO_EMAIL_DOMAIN ?? "")
+  .trim()
+  .toLowerCase()
+  .replace(/^@/, "")
+  .replace(/\.+$/, "");
+
+if (!emailDomain) {
+  console.error(
+    "Set VECTORAL_DEMO_EMAIL_DOMAIN to a domain you control, e.g. demo.yourcompany.com.\n" +
+      "\n" +
+      "There is no safe default. A reserved domain (example.com and friends) cannot\n" +
+      "receive mail, so it trips email_infrastructure on every run and no signup can\n" +
+      "produce a clean score — and after enough runs the domain also picks up\n" +
+      "disposable_email and email_reputation inside your tenant, which does take it\n" +
+      "out of tier 0. That decays on its own (seven days), but not inside the session\n" +
+      "you are testing in. Any other fixed default would put every reader's demo\n" +
+      "traffic on one domain, which is the same problem with a worse blast radius.",
+  );
+  process.exit(1);
+}
+
+if (isReserved(emailDomain)) {
+  console.error(
+    `VECTORAL_DEMO_EMAIL_DOMAIN=${emailDomain} is a reserved domain.\n` +
+      "\n" +
+      "Reserved names cannot receive mail, so email_infrastructure fires on every\n" +
+      "signup and the verdicts you are about to read would tell you nothing about\n" +
+      "the rest of what you sent. Use a domain you control.",
   );
   process.exit(1);
 }
@@ -43,7 +106,7 @@ const pendingSignupId = randomUUID();
 // 1 — screen the registration, before the account exists.
 console.log("1. registrations.score");
 const verdict = await vectoral.registrations.score({
-  email: `${accountId}@example.com`,
+  email: `${accountId}@${emailDomain}`,
   event_id: pendingSignupId,
   ip: "203.0.113.47",
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/140.0.0.0",

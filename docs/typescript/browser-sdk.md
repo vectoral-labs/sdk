@@ -163,6 +163,16 @@ tracker.stop();      // detach; idempotent
 Listeners are passive and capturing, so they never block typing. Fields are
 named by `name`, then `id`, then `type`.
 
+**Buttons are not fields.** Anything whose `type` is `submit`, `button`, `reset`
+or `image` is skipped, so it never reaches `fields` — including the submit button
+itself, which takes focus when clicked and, having no `name` or `id`, would
+otherwise fall through the naming chain and report itself as a field called
+`"submit"` with zero keystrokes. An `<input name="submit">` is a text field and
+is still tracked.
+
+Pass `fields` when you want to be explicit about what is reported rather than
+relying on that.
+
 **Only names and counts are recorded — never values.**
 
 ```js
