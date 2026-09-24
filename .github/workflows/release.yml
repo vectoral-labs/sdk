@@ -1,0 +1,121 @@
+name: Release
+
+# Publishes both packages to npm via TRUSTED PUBLISHING — OIDC, no NPM_TOKEN.
+# GitHub mints a short-lived identity token for this exact workflow file, npm
+# verifies it against the trusted publisher configured on each package, and
+# provenance attestations are generated automatically (no `--provenance` flag).
+#
+# Nothing here holds a secret. If this file is renamed or moved, npm will reject
+# the publish until the trusted-publisher config is updated to match, because
+# the workflow FILENAME is part of what is being trusted.
+#
+# Setup, once per package, at npmjs.com → package → Settings → Trusted Publisher:
+#   Organization or user : vectoral-labs
+#   Repository           : sdk
+#   Workflow filename    : release.yml
+#   Environment          : (leave blank — see the note at the bottom)
+#
+# Release by pushing a tag that matches the version in package.json:
+#   npm version <patch|minor|major> --workspaces --include-workspace-root
+#   git push && git push --tags
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Pack and validate, but do not publish"
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # the whole point: lets npm verify who is publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          # Trusted publishing requires Node >= 22.14.0.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: typescript/package-lock.json
+          registry-url: https://registry.npmjs.org
+
+      - name: Use an npm that speaks OIDC
+        # Node 22 ships npm 10.x; trusted publishing needs >= 11.5.1. Without
+        # this the publish falls back to looking for a token and fails.
+        run: |
+          npm install -g npm@^11.5.1
+          echo "npm $(npm --version) on node $(node --version)"
+
+      - name: Install
+        working-directory: typescript
+        run: npm ci
+
+      - name: The tag must match the version being published
+        # Guards the obvious foot-gun: tagging v0.2.0 while package.json still
+        # says 0.1.0 would publish 0.1.0 under a tag claiming otherwise, and the
+        # provenance attestation would enshrine the mismatch.
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: typescript
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for pkg in sdk browser; do
+            ver=$(node -p "require('./packages/$pkg/package.json').version")
+            echo "  @vectoral/$pkg is $ver, tag is $tag"
+            if [ "$ver" != "$tag" ]; then
+              echo "::error::@vectoral/$pkg is $ver but the tag says $tag"
+              exit 1
+            fi
+          done
+
+      - name: Test
+        working-directory: typescript
+        run: npm test
+
+      - name: Typecheck
+        working-directory: typescript
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: typescript
+        run: npm run build
+
+      - name: Publish
+        # `prepublishOnly` rebuilds dist again — cheap, and the only thing
+        # standing between a gitignored build directory and a stale tarball.
+        # Access and dist-tag come from each package's `publishConfig`.
+        # Provenance is automatic under trusted publishing.
+        working-directory: typescript
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "Dry run — packing only."
+            for pkg in sdk browser; do ( cd "packages/$pkg" && npm pack --dry-run ); done
+            exit 0
+          fi
+          npm publish --workspaces
+
+      - name: Confirm what landed
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: |
+          for pkg in @vectoral/sdk @vectoral/browser; do
+            echo "--- $pkg ---"
+            npm view "$pkg" dist-tags version --json || true
+          done
+# Optional hardening, once this has run cleanly a few times: create a GitHub
+# Environment (say `npm-publish`) with required reviewers, add
+# `environment: npm-publish` to this job, and set the same name in the
+# trusted-publisher config. Both sides must agree — an environment named on one
+# side only will make npm reject the OIDC token. It buys a human approval gate
+# on every publish.

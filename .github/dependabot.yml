@@ -1,0 +1,24 @@
+version: 2
+
+# CI pins actions to commit SHAs so a repointed tag cannot smuggle in an
+# unreviewed revision. Pins go stale, which is what this file is for: Dependabot
+# proposes the bump and rewrites the `# v4` comment alongside the SHA.
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"
+
+  - package-ecosystem: npm
+    directory: "/typescript"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(deps)"
+    # Both packages ship zero runtime dependencies; everything here is the
+    # toolchain, so batching keeps the PR count sane.
+    groups:
+      toolchain:
+        patterns: ["*"]

@@ -2,8 +2,7 @@
   "name": "@vectoral/browser",
   "version": "0.1.0",
   "description": "Browser-side signal collection for Vectoral: device fingerprint, automation tells, and form-fill telemetry.",
-  "license": "UNLICENSED",
-  "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -13,14 +12,34 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
-    }
+    },
+    "./standalone": "./dist/vectoral-fingerprint.js"
   },
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "scripts": {
     "build": "rm -rf dist && tsup",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "author": "Vectoral Labs, Inc.",
+  "homepage": "https://github.com/vectoral-labs/sdk/tree/main/typescript/packages/browser#readme",
+  "bugs": {
+    "url": "https://github.com/vectoral-labs/sdk/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vectoral-labs/sdk.git",
+    "directory": "typescript/packages/browser"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
   }
 }
