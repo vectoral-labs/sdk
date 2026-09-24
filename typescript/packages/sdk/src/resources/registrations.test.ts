@@ -25,9 +25,10 @@ describe("httpTimeoutFor", () => {
   });
 
   it("clamps a too-large deadline down to the server's ceiling", () => {
-    // Asserted as a value rather than against httpTimeoutFor(6000), which is
-    // trivially true for any ceiling at or below 6000 and so would pass while
-    // the SDK clamped low — the exact bug this file failed to catch before.
+    // Both assertions, because either alone has a hole: the equality passes
+    // for any ceiling at or below 6000 (the bug this file missed before), and
+    // the bound passes if the SDK stops clamping at all and waits 60s.
+    expect(httpTimeoutFor(60_000)).toBe(httpTimeoutFor(SERVER_DEADLINE_MAX_MS));
     expect(httpTimeoutFor(60_000)).toBeGreaterThan(SERVER_DEADLINE_MAX_MS);
   });
 });

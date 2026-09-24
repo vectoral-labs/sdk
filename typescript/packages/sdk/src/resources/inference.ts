@@ -237,6 +237,9 @@ export interface ScoreResponse {
    * dashboard, OR a tripped account/org spend cap. Check `reasons` for which:
    * `account_blocked` vs `spend_cap_exceeded:*`. Do not treat this as proof of
    * fraud; the tier is forced to `high` and the score to `1.0` either way.
+   *
+   * Because the tier is forced, a guard on `tier === "high"` already refuses
+   * these. Read this field to explain the refusal, not to catch it.
    */
   blocked?: boolean;
   /** True when a browser sensor event was folded into this score. */
@@ -268,7 +271,9 @@ export interface PostCallEvent {
   /** Recommended; omitting it loses model-mix features. */
   model?: string;
   /**
-   * Required if `inference_cost_usd` is not supplied.
+   * Send it when you measured it. Between this, `completion_tokens` and
+   * `inference_cost_usd`, send at least one — see `inference_cost_usd` for
+   * what omitting all three costs you.
    *
    * OMITTED AND ZERO ARE DIFFERENT. Omitted means "not measured"; `0` is real
    * evidence, and a zero completion count is one of the tells for synthetic
@@ -277,7 +282,7 @@ export interface PostCallEvent {
    * that asserts a fraud signal. Omit the field instead.
    */
   prompt_tokens?: number;
-  /** Required if `inference_cost_usd` is not supplied. See `prompt_tokens`. */
+  /** Send it when you measured it. See `prompt_tokens`. */
   completion_tokens?: number;
   latency_ms?: number;
   /**
