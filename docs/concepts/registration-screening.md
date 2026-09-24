@@ -107,24 +107,30 @@ distribution, and apply a policy *stricter* than the tier — refusing a trial
 above `0.8`, say, even though that is still tier 1.
 
 **Do not reimplement the banding from it.** Plotting the two against each other
-will suggest you can: the tier does start as a band on the score. But two things
-sit between them.
+will suggest you can: the tier does start as a band on the score. But three
+mechanisms move it, and only the first is visible in `score`.
 
-- **Some floors raise the score; others raise only the tier.** Device reuse and
-  address permutation are the first kind — each carries a hard floor that lifts
-  the *score* itself, far enough under the default bands to reach tier 2, so they
-  are visible in the number. Being one of many is the second kind: a correlation
-  signal that did *not* raise the score — a burst, or a scripted-looking client —
-  lifts the registration to the challenge tier and **no further**, leaving the
-  score alone. That second kind is invisible in `score`, which is why two
-  registrations with the same score can sit in different tiers, and a
-  lower-scoring one can sit higher.
-- **Both layers are yours to configure.** The band cuts, and a per-signal tier
-  floor for each of `email_infrastructure`, `fresh_domain`, `disposable_email`,
-  `email_reputation`, `registration_wave`, `device_reuse`, `client_automation`
-  and `free_provider`, are settings on your account. Thresholds you hardcode
-  today are thresholds that silently disagree with your own settings page
-  tomorrow.
+1. **The band.** Every signal that fires contributes a weighted amount to the
+   score, and the score is cut into tiers. This is the part you can see.
+2. **Score floors.** Two signals — device reuse and address permutation — also
+   clamp the *score* upward when they fire, far enough under the shipping cuts to
+   land in step-up. Still visible in the number, just no longer proportional to
+   the rest of the evidence.
+3. **Tier floors, which do not touch the score at all.** Two kinds: a built-in
+   one that lifts any registration the correlation checks flagged as *one of
+   many* to the challenge tier and **no further**; and the per-signal floors you
+   configure, which can raise it to any tier you choose.
+
+Mechanism 3 is what breaks a reimplementation, because it leaves no trace in
+`score`. It is why two registrations with the same score can sit in different
+tiers, and a lower-scoring one can sit higher.
+
+**The cuts and the floors are yours to configure** — the band cuts, and a
+per-signal tier floor for each of `email_infrastructure`, `fresh_domain`,
+`disposable_email`, `email_reputation`, `registration_wave`, `device_reuse`,
+`client_automation` and `free_provider`, are settings on your account.
+Thresholds you hardcode today are thresholds that silently disagree with your own
+settings page tomorrow.
 
 So a `score → tier` table derived by observation is a second, competing policy
 that drifts from the real one without ever erroring. Act on `tier`; keep `score`
