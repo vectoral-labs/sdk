@@ -21,8 +21,8 @@ it is cheaper than the afternoon it otherwise costs.
 
 **Do not test with `@example.com`.** Reserved names cannot receive mail, and
 non-deliverability is precisely what `email_infrastructure` exists to detect. So
-it fires on every signup you send, unconditionally, and a perfectly clean test
-registration can never reach tier 0.
+it fires on every signup you send, unconditionally, and no test registration can
+produce a clean score.
 
 They are undeliverable in two different ways, and both are caught:
 
@@ -33,10 +33,15 @@ They are undeliverable in two different ways, and both are caught:
   (RFC 2606, RFC 6761) that are **not delegated at all**, so they fail to resolve
   rather than resolving to a refusal.
 
-It also gets worse the more you test. The domain accumulates history **inside
-your tenant**: after a few dozen synthetic signups the same address space starts
-carrying `disposable_email` and `email_reputation` as well, and tier 0 becomes
-unreachable on that domain for good. You cannot undo it by waiting.
+On its own that is a floor under the score rather than a tier: one clean signup
+on a reserved domain still lands at tier 0 under the default bands. What it costs
+you is the ability to read the number — the signal you came to evaluate is
+underneath a constant you introduced.
+
+Repetition is what pushes it over. The domain accumulates history **inside your
+tenant**, so after a few dozen synthetic signups the same address space also
+carries `disposable_email` and `email_reputation`, and tier 0 does become
+unreachable.
 
 Use a domain you control, or a plausible one you do not send mail to. Nothing in
 this documentation uses a reserved domain, for this reason.
@@ -44,9 +49,18 @@ this documentation uses a reserved domain, for this reason.
 **Your integration testing is itself a registration wave.** Twenty synthetic
 signups in ten minutes, from one or two origins, with names varying by a
 counter, is an extremely good imitation of a signup farm — so `registration_wave`
-and `address_permutation` fire, and they are correlation signals, which means
-they then apply to *every* subsequent signup in the window including the
-deliberately clean one you were using as a control.
+and `address_permutation` fire.
+
+Correlation is **keyed, not tenant-wide**. Each check needs a shared attribute,
+so what gets swept up alongside your burst is what shares its email domain, exact
+IP, `/24`, `/64`, ASN, device fingerprint, or address family. A genuinely
+independent control is unaffected. One that differs from the burst only by a
+counter is the same address family — and that is the control most people build.
+
+**None of it is permanent**, either. The windows are bounded: bursts and
+per-address velocity look back an hour; address families, device reuse and domain
+reputation seven days. A domain you have burned recovers on its own — just not
+inside the afternoon you are testing in.
 
 The scoring is correct. The timing is unfortunate: it lands at the exact moment
 someone is deciding whether this product works. What works instead:
@@ -54,11 +68,12 @@ someone is deciding whether this product works. What works instead:
 - fresh, non-permuted identities per run — real-looking names, not `user001…user020`
 - a different email domain per run
 - space the runs out, or accept that the first minutes of a burst are correlated
-- keep one control identity that you send **before** the burst, not during it
+- keep one control identity that you send **before** the burst, not during it, and
+  make it independent — a different domain and network, not just a different name
 
 The general form of both: correlation compares this signup against your other
-signups, so **what you send changes what you get back next time**. That is the
-feature. It just also applies to your test traffic.
+signups that share something with it, so **what you send changes what you get
+back next time**. That is the feature. It just also applies to your test traffic.
 
 ## Acting on the tier
 
@@ -90,11 +105,14 @@ above `0.8`, say, even though that is still tier 1.
 will suggest you can: the tier does start as a band on the score. But two things
 sit between them.
 
-- **Floors raise the tier without raising the score.** Being one of many is the
-  built-in case: a signup that is part of a burst, a device that has registered
-  before, or a family of permuted addresses is lifted to at least `1` no matter
-  how low its score is. This is why you will see a `0.2` at tier 1 next to a
-  `0.4` at tier 0, and conclude the scale is noisy when it is not.
+- **Some floors raise the score; others raise only the tier.** Device reuse and
+  address permutation are the first kind — each carries a hard floor that lifts
+  the *score* itself, far enough under the default bands to reach tier 2, so they
+  are visible in the number. Being one of many is the second kind: any
+  correlation signal lifts a low-scoring registration to the challenge tier and
+  **no further**, without touching the score. That second kind is invisible in
+  `score`, which is why two registrations with the same score can sit in
+  different tiers, and a lower-scoring one can sit higher.
 - **Both layers are yours to configure.** The band cuts, and a per-signal tier
   floor for each of `email_infrastructure`, `fresh_domain`, `disposable_email`,
   `email_reputation`, `registration_wave`, `device_reuse`, `client_automation`
