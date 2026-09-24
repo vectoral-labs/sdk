@@ -29,7 +29,7 @@ form.addEventListener("submit", async (e) => {
 No bundler? The device fingerprint also ships as a standalone script tag:
 
 ```html
-<script async src="vectoral-fingerprint.js" data-site-key="pk_live_abc"></script>
+<script async src="/vectoral-fingerprint.js" data-site-key="pk_live_abc"></script>
 <script>
   window.vectoralFp = window.vectoralFp || { q: [] };
   vectoralFp.q.push(["get", null, (err, fp) => console.log(fp.fingerprint)]);

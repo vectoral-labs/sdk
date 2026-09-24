@@ -40,7 +40,7 @@ with an `event_id`, or queue it — but do not swallow it.
 ```ts
 {
   score: 0.83,            // calibrated [0,1]; 0 = clean
-  tier: "high",           // low <0.4 | medium <0.7 | high >=0.7
+  tier: "high",           // default cuts: low <0.4 | medium <0.7 | high >=0.7
   reasons: ["machine_paced", "birth_cohort"],
   baseline_ready: true,
   shadow_mode: false,
@@ -48,13 +48,12 @@ with an `event_id`, or queue it — but do not swallow it.
 }
 ```
 
-Two flags decide whether the score is enforcement-grade:
+Two flags tell you whether the verdict in front of you is the live one:
 
-- **`baseline_ready: false`** — the per-account baseline is still forming. The
-  score is real but provisional. Treat it as advisory.
+- **`baseline_ready: true`** — we are actively scoring. The verdict is live.
 - **`shadow_mode: true`** — you are inside the warm-up window. The verdict you
   receive is masked to a clean value while the real one is still computed and
-  recorded.
+  recorded. The window is set on your account, not per end-user.
 
 `algorithm`, `algorithm_version` and `service_version` are diagnostics. Log
 them; do not branch on them. They are opaque strings and new values can appear
@@ -62,9 +61,10 @@ without a version bump.
 
 ## Reasons
 
-`reasons` names up to three contributing factors, most significant first. They
-are for your logs and for support conversations — **the field to act on is
-`tier`**.
+`reasons` names up to three contributing factors from the scoring algorithm,
+most significant first, plus any operational codes — so a response can carry
+more than three. They are for your logs and for support conversations — **the
+field to act on is `tier`**.
 
 **The set is open.** Reasons are produced by the scoring algorithm running
 server-side, which ships independently of the SDK, so a code you have never seen
@@ -97,8 +97,12 @@ The ordinary case: the algorithm's own findings. This is the group that grows.
 ### Operational
 
 These do not come from the algorithm. Each means something overrode or replaced
-the verdict, so they lead the list when present — and any codes after them may
-belong to a score that was not the one acted on.
+the verdict, so most of them lead the list when present, and any codes after
+them may belong to a score that was not the one acted on.
+
+`reputation_discount` is the exception: it is **appended**, not prepended, so it
+arrives last. Scan the whole array for operational codes rather than checking
+`reasons[0]`.
 
 | Reason | What it means |
 | --- | --- |

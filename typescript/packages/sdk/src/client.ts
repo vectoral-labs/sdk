@@ -100,7 +100,7 @@ export class Vectoral {
     const fetchImpl = opts.fetch ?? globalThis.fetch;
     if (!fetchImpl) {
       throw new VectoralConfigError(
-        "no global fetch available — pass `fetch` (Node >=18 has it built in)",
+        "no global fetch available — pass `fetch` (Node >=20 has it built in)",
       );
     }
 

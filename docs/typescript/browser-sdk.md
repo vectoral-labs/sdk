@@ -93,7 +93,7 @@ Synchronous and cheap. Safe to call on every protected action, not just signup.
 
 ```js
 const auto = detectAutomation({ threshold: 0.6 });
-// { score: 0.87, automated: true, reasons: ["webdriver_flag", …],
+// { score: 0.85, automated: true, reasons: ["webdriver_flag", …],
 //   signals: { … }, fingerprintAnomaly: 0.0 }
 ```
 
@@ -187,7 +187,7 @@ relying on that.
 
 - `pasted` — the valuable bit: scripted fills paste, humans type. Set by both
   `paste` events and `insertFromPaste` input events.
-- `corrections` — backspaces and deletes. Humans make them; scripts do not.
+- `corrections` — backspaces, deletes and undo. Humans make them; scripts do not.
 - `keystrokes` — character-producing keys only; modifiers and arrows do not
   count.
 - `focus_ms` — accumulated across visits. `snapshot()` includes in-progress

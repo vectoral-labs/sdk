@@ -14,7 +14,7 @@ scripts/                 maintainer tooling
 ```bash
 cd typescript
 npm ci
-npm test          # vitest, 150 tests
+npm test
 npm run typecheck
 npm run build     # tsup, both packages
 ```

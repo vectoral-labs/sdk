@@ -1,6 +1,6 @@
 import { VectoralError } from "./errors.js";
 
-/** Minimal fetch signature so this runs on Node 18+, Deno, Bun, and edge runtimes. */
+/** Minimal fetch signature so this runs on Node 20+, Deno, Bun, and edge runtimes. */
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export interface TransportOptions {

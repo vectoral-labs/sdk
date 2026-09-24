@@ -68,7 +68,8 @@ to what you send.
 
 ## Warm-up
 
-A new account begins in a shadow-mode window. Responses carry
+Your account begins in a shadow-mode window — one window per customer, not one
+per end-user. Responses carry
 `shadow_mode: true` and the verdict is pinned to the permissive value, while the
 real verdict is still computed and recorded. Integrate, deploy, and confirm your
 wiring without challenging anybody; then start enforcing.

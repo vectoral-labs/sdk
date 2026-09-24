@@ -107,8 +107,10 @@ try {
 
 ## Timeouts
 
-`timeoutMs` defaults to 5000. For `registrations.score()`, the SDK derives its
-timeout from `deadline_ms` instead — always above it, so you never abort locally
-on a server that was one moment from answering. A client timeout below the
+`timeoutMs` defaults to 5000. For `registrations.score()`, the SDK takes the
+larger of `timeoutMs` and `deadline_ms` plus headroom, so it never aborts below
+the server's own deadline and you never abort locally on a server that was one
+moment from answering. With the default `timeoutMs`, that floor of 5000 is
+usually what applies. A client timeout below the
 server's deadline converts good verdicts into fail-open zeros, which is the
 failure mode that looks like everything working.

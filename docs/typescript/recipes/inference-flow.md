@@ -7,6 +7,7 @@ work with.
 
 ```ts
 import { Vectoral, VectoralError } from "@vectoral-labs/sdk";
+import type { PostCallEvent } from "@vectoral-labs/sdk";
 
 const vectoral = new Vectoral({
   apiKey: process.env.VECTORAL_API_KEY,
@@ -102,7 +103,7 @@ Three guards on the branch above, each earning its place:
 
 | Guard | Without it |
 | --- | --- |
-| `baseline_ready` | You enforce against a provisional score on accounts too new to judge |
+| `baseline_ready` | You enforce on a masked verdict during your warm-up window, when the tier you are reading is not the real one |
 | `!degraded` | Harmless — a degraded verdict is `tier: "low"` — but stating it keeps the intent readable when the fail-open default changes |
 | `tier === "high"` | Enforcing on `medium` is a rate-limit decision, not a fraud decision |
 

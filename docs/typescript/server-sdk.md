@@ -93,7 +93,9 @@ const verdict = await vectoral.inference.score({
 });
 ```
 
-Returns `score`, `tier` (`"low" | "medium" | "high"`), `reasons`,
+Returns `score`, `tier` (`"low" | "medium" | "high"` by default, though the
+cuts are configurable per account and the scale is open — compare, do not
+switch), `reasons`,
 `baseline_ready`, `shadow_mode`, `deep_mode_active`, and on a fail-open failure
 `degraded: true`.
 
@@ -114,8 +116,15 @@ await vectoral.inference.postCall({
 });
 ```
 
-**Never fails open** — handle or queue its errors. Omit `inference_cost_usd` and
-the server computes cost from its own rate table.
+**Never fails open** — handle or queue its errors. Omit `inference_cost_usd`
+and the server computes cost from its own rate table, but only when a token
+count is present and non-zero; omit all three and no cost is recorded.
+
+Token counts have three states, not two. Omitted means "not measured"; `0` is
+real evidence, and a zero completion count is a tell for synthetic traffic. Do
+not coalesce a missing count to zero — for a modality that produces no
+completion (embeddings, tts, stt, rerank) that asserts a fraud signal. Omit the
+field instead.
 
 ## `vectoral.identity`
 

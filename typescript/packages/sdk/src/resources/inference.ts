@@ -7,7 +7,7 @@ import type { ResolvedFingerprintConfig } from "../salt.js";
 import { computeFingerprint, conversationKey } from "../fingerprint/index.js";
 
 /** Risk banding returned alongside the numeric score. */
-export type Tier = "low" | "medium" | "high";
+export type Tier = "low" | "medium" | "high" | (string & {});
 
 /**
  * Reason codes that can appear in a score response, as a hint for autocomplete.
@@ -73,10 +73,34 @@ export interface AccountBlock {
   /** RFC 3339 timestamp of when the account first existed in your system. */
   first_seen?: string;
   /**
+   * Customer-attested account facts. Every field is optional and an omitted
+   * one means "not provided" — it is gated off rather than defaulted, so a
+   * partial block is never read as a favourable answer.
+   *
+   * This is what drives the `account_risk` reason code, and the positive
+   * fields also earn a trust discount. Sent verbatim, like the rest of the
+   * block.
+   */
+  context?: AccountContextBlock;
+  /**
    * Free-form tier label, e.g. "free" | "pro" | "enterprise". Sent as given;
    * use a stable internal label rather than anything user-supplied.
    */
   subscription_tier?: string;
+}
+
+/** Customer-attested account facts. See `AccountBlock.context`. */
+export interface AccountContextBlock {
+  /** "paid" | "unpaid" | "trial". Omit when unknown. */
+  plan_type?: string;
+  has_payment_method?: boolean;
+  email_verified?: boolean;
+  /** KYC / identity verification. */
+  identity_verified?: boolean;
+  prior_chargeback?: boolean;
+  billing_delinquent?: boolean;
+  /** "vip" | "allowlisted". Omit when none. */
+  trust_label?: string;
 }
 
 /**
@@ -125,7 +149,21 @@ export interface RequestBlock {
   estimated_prompt_tokens?: number;
   /** Pass `null` or omit to skip session signals entirely. */
   session_signals?: SessionSignals | null;
-  /** Only used by Deep Mode. Never leaves the customer VPC. */
+  /**
+   * The signed token from `/v1/sensor/collect`, forwarded by your backend.
+   * The trusted, unforgeable way to join this call to the browser verdict —
+   * it supersedes the plaintext `session_id` for fusion.
+   */
+  sensor_token?: string;
+  /**
+   * Raw prompt text, read only when Deep Mode is enabled.
+   *
+   * IT IS SENT ON THE WIRE. Intended for self-hosted or in-VPC deployments
+   * where the request never leaves your network — against the hosted API this
+   * transmits the prompt to Vectoral. If what you want is prompt correlation
+   * without sending text, that is `prompt_text_to_fingerprint` below, which is
+   * hashed in-process and stripped from every request.
+   */
   prompt_text?: string;
   /** Customer-precomputed embedding (alternative to `prompt_text`). */
   prompt_embedding?: number[];
@@ -149,23 +187,49 @@ export interface ScoreRequest {
   session_id?: string;
   account?: AccountBlock;
   request: RequestBlock;
+  /**
+   * Idempotency key. A repeat of the same `event_id` returns the ORIGINAL
+   * verdict and scores nothing, flagged as `duplicate`.
+   *
+   * It is also what makes an SDK-level retry safe, and therefore what enables
+   * retries on this call at all — without it a timed-out `score()` is a
+   * fail-open zero with no second attempt.
+   */
+  event_id?: string;
 }
 
 export interface ScoreResponse {
   /** Calibrated [0,1] score. 0 = clean, 1 = certain fraud. */
   score: number;
-  /** low (<0.4) | medium (<0.7) | high (>=0.7). */
+  /**
+   * Banding of `score`. The default cuts are low (<0.4) | medium (<0.7) |
+   * high (>=0.7), but they are configurable per account — do not hardcode
+   * them, and do not switch exhaustively on this union.
+   */
   tier: Tier;
-  /** Up to 3 reason codes. */
+  /**
+   * Up to 3 from the scoring algorithm, plus any operational codes. Note that
+   * `reputation_discount` is appended rather than prepended, so checking only
+   * `reasons[0]` for an override will miss it.
+   */
   reasons: ReasonCode[];
   deep_mode_active: boolean;
-  /**
-   * False while the per-account baseline is still forming: the score is
-   * provisional — advisory, not enforcement-grade.
-   */
+  /** True when we are actively scoring: the verdict is live, not masked. */
   baseline_ready: boolean;
   /** True during the customer's warm-up window. The score is still real. */
   shadow_mode: boolean;
+  /**
+   * True when the account was manually blocked from the dashboard. The tier is
+   * forced to deny; reject the request.
+   */
+  blocked?: boolean;
+  /** True when a browser sensor event was folded into this score. */
+  signals_fused?: boolean;
+  /** The standalone bot score for the joined session, when fused. */
+  browser_score?: number;
+  browser_decision?: string;
+  /** True when this replays a stored verdict for the request's `event_id`. */
+  duplicate?: boolean;
   /** Diagnostic only; treat as an opaque string. */
   algorithm?: string;
   algorithm_version?: string;
@@ -187,12 +251,24 @@ export interface PostCallEvent {
   session_id?: string;
   /** Recommended; omitting it loses model-mix features. */
   model?: string;
-  /** Required if `inference_cost_usd` is not supplied. */
+  /**
+   * Required if `inference_cost_usd` is not supplied.
+   *
+   * OMITTED AND ZERO ARE DIFFERENT. Omitted means "not measured"; `0` is real
+   * evidence, and a zero completion count is one of the tells for synthetic
+   * traffic. Do not write `completion_tokens: usage.output_tokens ?? 0` — for
+   * a modality that produces no completion (embeddings, tts, stt, rerank)
+   * that asserts a fraud signal. Omit the field instead.
+   */
   prompt_tokens?: number;
-  /** Required if `inference_cost_usd` is not supplied. */
+  /** Required if `inference_cost_usd` is not supplied. See `prompt_tokens`. */
   completion_tokens?: number;
   latency_ms?: number;
-  /** If omitted, the server computes cost from its bundled rate table. */
+  /**
+   * If omitted, the server computes cost from its bundled rate table — but
+   * only when a token count is present and non-zero. Omit all three and no
+   * cost is recorded at all.
+   */
   inference_cost_usd?: number;
   /** Idempotency key. Also what makes an SDK-level retry safe. */
   event_id?: string;
@@ -235,7 +311,9 @@ export class Inference {
       const body = await this.transport.post<ScoreResponse>(
         "/v1/score",
         this.prepare(req),
-        { idempotent: false },
+        // Retries are gated on idempotency, never configured separately: a
+        // replayed score without an event_id would bill and record twice.
+        { idempotent: req.event_id !== undefined },
       );
       // See the matching check in registrations.score(): syntactically valid
       // JSON is not proof of a verdict, and a silent pass-through would hand
