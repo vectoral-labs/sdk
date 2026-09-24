@@ -189,7 +189,7 @@ nobody can tell.
 5. **Context** — `declared_country`, `user_agent`, `phone`, `username`,
    `referrer`, `asn`, `ip_country`, `sensor_token`.
 
-`@vectoral/browser`'s `signupSignals()` produces 1, 3 and 4 in one call, already
+`@vectoral-labs/browser`'s `signupSignals()` produces 1, 3 and 4 in one call, already
 in the right shape.
 
 ## Linking the account back

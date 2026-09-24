@@ -49,7 +49,7 @@ export type ReasonCode =
   | "scoring_unavailable"
   | "reputation_discount"
   // Browser signals — present only when a verified sensor token was fused into
-  // this score. Absent entirely if you have not deployed `@vectoral/browser`.
+  // this score. Absent entirely if you have not deployed `@vectoral-labs/browser`.
   | "webdriver_present"
   | "automation_signature"
   | "headless_browser"

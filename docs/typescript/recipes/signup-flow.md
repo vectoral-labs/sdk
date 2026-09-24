@@ -6,7 +6,7 @@ months later.
 ## 1. The signup page
 
 ```js
-import { trackForm, signupSignals } from "@vectoral/browser";
+import { trackForm, signupSignals } from "@vectoral-labs/browser";
 
 const form = document.querySelector("#signup");
 // Start tracking on page load, not at submit — the point is HOW the form was
@@ -43,7 +43,7 @@ place that holds the API key and the only place that knows the real client IP.
 ## 2. The screening endpoint
 
 ```ts
-import { Vectoral, RegistrationTier } from "@vectoral/sdk";
+import { Vectoral, RegistrationTier } from "@vectoral-labs/sdk";
 import { randomUUID } from "node:crypto";
 
 const vectoral = new Vectoral({

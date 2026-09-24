@@ -1,10 +1,10 @@
-# `@vectoral/sdk` reference
+# `@vectoral-labs/sdk` reference
 
 Server-side only. It holds a secret API key, and the client IP it sends is only
 meaningful when your own server observed it.
 
 ```ts
-import { Vectoral, RegistrationTier, VectoralError } from "@vectoral/sdk";
+import { Vectoral, RegistrationTier, VectoralError } from "@vectoral-labs/sdk";
 const vectoral = new Vectoral({ apiKey: process.env.VECTORAL_API_KEY });
 ```
 
@@ -153,7 +153,7 @@ about the boundary.
 ## Errors
 
 ```ts
-import { VectoralError, VectoralConfigError } from "@vectoral/sdk";
+import { VectoralError, VectoralConfigError } from "@vectoral-labs/sdk";
 
 try {
   await vectoral.inference.postCall(event);
@@ -172,7 +172,7 @@ try {
 ## Salt helpers
 
 ```ts
-import { generateSalt, suggestSaltId } from "@vectoral/sdk";
+import { generateSalt, suggestSaltId } from "@vectoral-labs/sdk";
 ```
 
 `generateSalt()` returns 32 random bytes as hex. `suggestSaltId()` returns
@@ -182,7 +182,7 @@ script, never at process start. See [salts](../concepts/salts.md).
 ## Low-level fingerprinting
 
 ```ts
-import { computeFingerprint, conversationKey } from "@vectoral/sdk";
+import { computeFingerprint, conversationKey } from "@vectoral-labs/sdk";
 ```
 
 Exported for integrations that precompute fingerprints (a proxy, a batch

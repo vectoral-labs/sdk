@@ -1,4 +1,4 @@
-// @vectoral/sdk — server-side SDK for the Vectoral fraud-scoring API.
+// @vectoral-labs/sdk — server-side SDK for the Vectoral fraud-scoring API.
 //
 //   vectoral.registrations.score()  screen a signup before the account exists
 //   vectoral.inference.score()      score an inference request before the call
@@ -8,7 +8,7 @@
 //
 // SERVER-SIDE ONLY. It carries a secret API key, and the client IP it sends is
 // only meaningful when your server observed it. Browser-side collection lives
-// in @vectoral/browser, whose output you forward through here.
+// in @vectoral-labs/browser, whose output you forward through here.
 
 export { Vectoral, createClient } from "./client.js";
 export type { VectoralOptions } from "./client.js";

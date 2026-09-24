@@ -3,7 +3,7 @@
 import type { Transport } from "../http.js";
 import { VectoralError, notifyError } from "../errors.js";
 
-/** Browser-environment tells, as collected by `@vectoral/browser`. */
+/** Browser-environment tells, as collected by `@vectoral-labs/browser`. */
 export interface RegistrationClientBlock {
   /** `navigator.webdriver`. Cheap, and a strong tell when true. */
   webdriver?: boolean;
@@ -59,7 +59,7 @@ export interface RegistrationRequest {
   /**
    * Client-side device identifier. **The single highest-value optional field** —
    * one device across many registrations is the strongest farm signal there is.
-   * `@vectoral/browser`'s `deviceFingerprint()` produces one.
+   * `@vectoral-labs/browser`'s `deviceFingerprint()` produces one.
    */
   device_fingerprint?: string;
   /** A token from the browser sensor, if deployed. */

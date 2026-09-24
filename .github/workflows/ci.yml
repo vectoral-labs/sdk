@@ -106,8 +106,8 @@ jobs:
         run: |
           echo "--- ESM ---"
           node --input-type=module -e '
-            import { Vectoral, computeFingerprint, VectoralError } from "@vectoral/sdk";
-            import { deviceFingerprint, detectAutomation, trackForm, signupSignals } from "@vectoral/browser";
+            import { Vectoral, computeFingerprint, VectoralError } from "@vectoral-labs/sdk";
+            import { deviceFingerprint, detectAutomation, trackForm, signupSignals } from "@vectoral-labs/browser";
             const missing = Object.entries({
               Vectoral, computeFingerprint, VectoralError,
               deviceFingerprint, detectAutomation, trackForm, signupSignals,
@@ -117,17 +117,17 @@ jobs:
           '
           echo "--- CJS ---"
           node -e '
-            const sdk = require("@vectoral/sdk");
-            const browser = require("@vectoral/browser");
+            const sdk = require("@vectoral-labs/sdk");
+            const browser = require("@vectoral-labs/browser");
             if (typeof sdk.Vectoral !== "function") { console.error("sdk.Vectoral missing"); process.exit(1); }
             if (typeof browser.deviceFingerprint !== "function") { console.error("browser.deviceFingerprint missing"); process.exit(1); }
             console.log("  ok");
           '
           echo "--- ./standalone subpath ---"
-          node -e 'console.log("  ", require.resolve("@vectoral/browser/standalone"))'
+          node -e 'console.log("  ", require.resolve("@vectoral-labs/browser/standalone"))'
           echo "--- LICENSE ships with both ---"
-          test -f node_modules/@vectoral/sdk/LICENSE
-          test -f node_modules/@vectoral/browser/LICENSE
+          test -f node_modules/@vectoral-labs/sdk/LICENSE
+          test -f node_modules/@vectoral-labs/browser/LICENSE
           echo "  ok"
 
       - name: Published type declarations resolve under nodenext
@@ -135,8 +135,8 @@ jobs:
         run: |
           npm install --no-save typescript >/dev/null
           cat > probe.ts <<'TS'
-          import { Vectoral } from "@vectoral/sdk";
-          import { signupSignals } from "@vectoral/browser";
+          import { Vectoral } from "@vectoral-labs/sdk";
+          import { signupSignals } from "@vectoral-labs/browser";
           const v: Vectoral = new Vectoral({ apiKey: "k" });
           export const probe = [v, signupSignals];
           TS
@@ -151,7 +151,7 @@ jobs:
         run: |
           node -e '
             const fs = require("node:fs"), vm = require("node:vm");
-            const src = fs.readFileSync("node_modules/@vectoral/browser/dist/vectoral-fingerprint.js", "utf8");
+            const src = fs.readFileSync("node_modules/@vectoral-labs/browser/dist/vectoral-fingerprint.js", "utf8");
             const sandbox = {
               crypto, TextEncoder, Promise, console, setTimeout,
               navigator: { userAgent: "Mozilla/5.0 Chrome/140.0.0.0", platform: "MacIntel",

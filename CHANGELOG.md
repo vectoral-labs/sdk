@@ -10,7 +10,7 @@ the project follows [Semantic Versioning](https://semver.org/) — with the usua
 
 ### Added
 
-- `@vectoral/browser`: standalone `<script>` build of the device fingerprint
+- `@vectoral-labs/browser`: standalone `<script>` build of the device fingerprint
   (`dist/vectoral-fingerprint.js`, also reachable as the `./standalone` export).
   Exposes `window.vectoralFp`, reads `data-site-key` off its own script tag, and
   produces the same salted value as the npm entry point. Posts nothing.
@@ -25,25 +25,25 @@ the project follows [Semantic Versioning](https://semver.org/) — with the usua
   never ran there: vitest 4 pulls in rolldown, which imports `styleText` from
   `node:util` — added in Node 20.12 and absent from every 18.x. Node 18 reached
   end of life on 2025-04-30, so the floor moves rather than the toolchain.
-- `@vectoral/browser`: `signupSignals().client.webdriver` is now **optional**. It
+- `@vectoral-labs/browser`: `signupSignals().client.webdriver` is now **optional**. It
   is present only when the browser actually reported `navigator.webdriver`;
   previously an unmeasured value was reported as a measured `false`.
-- `@vectoral/sdk`: `deadline_ms` now raises the HTTP timeout as a floor rather
+- `@vectoral-labs/sdk`: `deadline_ms` now raises the HTTP timeout as a floor rather
   than replacing it, so it can no longer reduce a `timeoutMs` you configured.
-- `@vectoral/sdk`: an explicit `customerId` now wins over a `VECTORAL_API_KEY`
+- `@vectoral-labs/sdk`: an explicit `customerId` now wins over a `VECTORAL_API_KEY`
   found in the environment, instead of throwing "not both".
 
 ### Fixed
 
-- `@vectoral/sdk`: the request timeout was cleared once response headers
+- `@vectoral-labs/sdk`: the request timeout was cleared once response headers
   arrived, so a server that stalled mid-body hung the call indefinitely.
-- `@vectoral/sdk`: scoring calls returned unvalidated 2xx bodies. A malformed
+- `@vectoral-labs/sdk`: scoring calls returned unvalidated 2xx bodies. A malformed
   response read as a clean verdict with `degraded` unset; it now degrades.
-- `@vectoral/sdk`: `postCall`, `identity.record`, and `labels.submit` accepted
+- `@vectoral-labs/sdk`: `postCall`, `identity.record`, and `labels.submit` accepted
   any 2xx JSON as an acknowledgement, silently dropping writes.
-- `@vectoral/sdk`: a throwing `onError` callback could reject a call that was
+- `@vectoral-labs/sdk`: a throwing `onError` callback could reject a call that was
   supposed to fail open.
-- `@vectoral/sdk`: `prepare()` silently overwrote a caller-supplied
+- `@vectoral-labs/sdk`: `prepare()` silently overwrote a caller-supplied
   `prompt_fingerprint`, and never warned when `prompt_text_to_fingerprint` was
   passed with fingerprinting unconfigured.
 
