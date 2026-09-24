@@ -30,13 +30,18 @@ They are undeliverable in two different ways, and both are caught:
   **null MX** (RFC 7505) — an explicit, standards-mandated declaration that the
   domain accepts no mail.
 - `.test`, `.invalid`, `.localhost` and `.example` are special-use names
-  (RFC 2606, RFC 6761) with **no public delegation**, so there is no mail host
-  for us to find. `.invalid` and `.example` have none to resolve at all;
-  `.localhost` answers address queries with the loopback address by
-  specification and returns a negative response to every other query type, `MX`
-  included; `.test` can be made to resolve inside a *private* network that
-  configures it, which is no help — the lookup happens from our resolvers, not
-  yours. Different mechanics, same conclusion: nothing we can deliver to.
+  (RFC 2606, RFC 6761) with **no public delegation**, so on an ordinary
+  deployment there is no mail host to find. `.invalid` and `.example` have
+  nothing to resolve at all; `.localhost` answers address queries with the
+  loopback address by specification and returns a negative response to every
+  other query type, `MX` included.
+
+  `.test` is the one to avoid most. It can be made to resolve inside a private
+  network configured for it — so against a **self-hosted** deployment, whose
+  lookups use its own host's DNS, it may resolve and `email_infrastructure` may
+  not fire at all. Undeliverable is a usable constant; *unpredictable* is not,
+  and it means a clean result against your stack proves nothing about a cloud
+  one.
 
 On its own that is a floor under the score rather than a tier: one clean signup
 on a reserved domain still lands at tier 0 under the default bands. What it costs
