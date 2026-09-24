@@ -21,7 +21,7 @@ interface Vector {
   conversation_key?: string;
 }
 
-// Vendored from the monorepo's internal/fingerprint/testdata. Refresh with
+// Vendored from the normative Go implementation. Maintainers refresh with
 // scripts/sync-fingerprint-vectors.sh; never regenerate from TypeScript.
 const vectorsPath = fileURLToPath(
   new URL("./testdata/test_vectors.json", import.meta.url),

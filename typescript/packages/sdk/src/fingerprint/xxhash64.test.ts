@@ -4,7 +4,7 @@ import { hex64, utf8, bytesToBase64 } from "./encoding.js";
 
 describe("xxh64", () => {
   // Reference vectors from the canonical xxHash implementation — the same
-  // four the Go suite pins (internal/fingerprint/xxhash_test.go).
+  // four the Go suite pins.
   const cases: Array<[string, bigint, bigint]> = [
     ["", 0n, 0xef46db3751d8e999n],
     ["abc", 0n, 0x44bc2cf5ad770999n],

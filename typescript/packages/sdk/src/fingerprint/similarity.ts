@@ -1,5 +1,5 @@
-// SimHash / MinHash / band-key primitives — port of the normative Go
-// implementation (internal/fingerprint/{shingle,simhash,minhash}.go).
+// SimHash / MinHash / band-key primitives — a port of the normative Go
+// implementation.
 // The permutation constants are the canonical minhash_constants.json; a
 // parity test guards against drift from the repo-root copy.
 
