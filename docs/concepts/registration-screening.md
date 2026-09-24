@@ -30,11 +30,13 @@ They are undeliverable in two different ways, and both are caught:
   **null MX** (RFC 7505) — an explicit, standards-mandated declaration that the
   domain accepts no mail.
 - `.test`, `.invalid`, `.localhost` and `.example` are special-use names
-  (RFC 2606, RFC 6761) that no registry may allocate, so **no mail host can
-  exist** under them. `.test`, `.invalid` and `.example` simply fail to resolve;
-  `.localhost` is the odd one out — address queries answer with the loopback
-  address by specification, while every other query type, `MX` included, gets a
-  negative response. Different mechanics, same conclusion: nothing to deliver to.
+  (RFC 2606, RFC 6761) with **no public delegation**, so there is no mail host
+  for us to find. `.invalid` and `.example` have none to resolve at all;
+  `.localhost` answers address queries with the loopback address by
+  specification and returns a negative response to every other query type, `MX`
+  included; `.test` can be made to resolve inside a *private* network that
+  configures it, which is no help — the lookup happens from our resolvers, not
+  yours. Different mechanics, same conclusion: nothing we can deliver to.
 
 On its own that is a floor under the score rather than a tier: one clean signup
 on a reserved domain still lands at tier 0 under the default bands. What it costs
@@ -113,9 +115,9 @@ mechanisms move it, and only the first is visible in `score`.
 1. **The band.** Every signal that fires contributes a weighted amount to the
    score, and the score is cut into tiers. This is the part you can see.
 2. **Score floors.** Two signals — device reuse and address permutation — also
-   clamp the *score* upward when they fire, far enough under the shipping cuts to
-   land in step-up. Still visible in the number, just no longer proportional to
-   the rest of the evidence.
+   clamp the *score* upward when they fire, to a value above the shipping
+   step-up cut. Still visible in the number, just no longer proportional to the
+   rest of the evidence.
 3. **Tier floors, which do not touch the score at all.** Two kinds: a built-in
    one that lifts any registration the correlation checks flagged as *one of
    many* to the challenge tier and **no further**; and the per-signal floors you

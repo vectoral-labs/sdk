@@ -34,10 +34,12 @@ if (!process.env.VECTORAL_API_KEY || !baseUrl) {
 // which is exactly what the `email_infrastructure` signal detects — the two
 // lists get there by different routes and both are caught. The example domains
 // are delegated and publish a null MX (RFC 7505), an explicit refusal of mail.
-// The special-use TLDs are ones no registry may allocate, so no mail host can
-// exist under them: `.test`, `.invalid` and `.example` fail to resolve, while
+// The special-use TLDs have no public delegation, so there is no mail host for
+// the lookup to find: `.invalid` and `.example` have none to resolve at all,
 // `.localhost` answers address queries with the loopback address and returns a
-// negative response to every other query type, MX included. Either way an
+// negative response to every other query type (MX included), and `.test` only
+// resolves inside a private network configured for it — which does not help,
+// because the lookup runs on our resolvers rather than yours. Either way an
 // address on one can never produce a clean score, so this example used to open
 // by demonstrating a signal firing and calling it a demo.
 const RESERVED_DOMAINS = ["example.com", "example.net", "example.org"];
