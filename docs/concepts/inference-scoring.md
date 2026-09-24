@@ -40,7 +40,7 @@ with an `event_id`, or queue it — but do not swallow it.
 ```ts
 {
   score: 0.83,            // calibrated [0,1]; 0 = clean
-  tier: "high",           // default cuts: low <0.4 | medium <0.7 | high >=0.7
+  tier: "high",           // medium at >=0.30, high at >=0.60
   reasons: ["machine_paced", "birth_cohort"],
   baseline_ready: true,
   shadow_mode: false,
@@ -48,12 +48,17 @@ with an `event_id`, or queue it — but do not swallow it.
 }
 ```
 
-Two flags tell you whether the verdict in front of you is the live one:
+**The score is always real.** Unlike registration screening, `inference.score()`
+never masks or pins its verdict — there is no warm-up window in which it is safe
+to act on the response without thinking.
 
-- **`baseline_ready: true`** — we are actively scoring. The verdict is live.
-- **`shadow_mode: true`** — you are inside the warm-up window. The verdict you
-  receive is masked to a clean value while the real one is still computed and
-  recorded. The window is set on your account, not per end-user.
+Two advisory flags come with it, and acting on them is your decision:
+
+- **`baseline_ready: true`** — we are actively scoring.
+- **`shadow_mode: true`** — you are inside the warm-up window, which is set on
+  your account, not per end-user. The verdict is still the real one, so if you
+  want to observe rather than enforce during warm-up, **you have to branch on
+  this yourself.**
 
 `algorithm`, `algorithm_version` and `service_version` are diagnostics. Log
 them; do not branch on them. They are opaque strings and new values can appear

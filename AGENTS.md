@@ -77,6 +77,9 @@ fires on a `v*` tag.
 
 Three things are load-bearing and easy to break:
 
+- **A `v*` tag publishes immediately, with no approval gate.** No environment,
+  no reviewer. The tag *is* the release. A stray `v0.0.1-test` on any branch
+  will attempt a real publish.
 - **The workflow filename is part of the trust.** Renaming or moving
   `release.yml` makes npm reject the publish until the trusted-publisher config
   is updated to match.

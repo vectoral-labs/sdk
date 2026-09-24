@@ -93,9 +93,9 @@ const verdict = await vectoral.inference.score({
 });
 ```
 
-Returns `score`, `tier` (`"low" | "medium" | "high"` by default, though the
-cuts are configurable per account and the scale is open — compare, do not
-switch), `reasons`,
+Returns `score`, `tier` (`"low" | "medium" | "high"` — medium at `>=0.30`,
+high at `>=0.60`, and note the tier is not a pure function of the score:
+automated traffic is lifted to at least medium whatever it scored), `reasons`,
 `baseline_ready`, `shadow_mode`, `deep_mode_active`, and on a fail-open failure
 `degraded: true`.
 
@@ -118,7 +118,8 @@ await vectoral.inference.postCall({
 
 **Never fails open** — handle or queue its errors. Omit `inference_cost_usd`
 and the server computes cost from its own rate table, but only when a token
-count is present and non-zero; omit all three and no cost is recorded.
+count is present and non-zero. Omit all three and a cost of `0` is recorded,
+which reads as zero-value evidence — send a token count or an explicit cost.
 
 Token counts have three states, not two. Omitted means "not measured"; `0` is
 real evidence, and a zero completion count is a tell for synthetic traffic. Do

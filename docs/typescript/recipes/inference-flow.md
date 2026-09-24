@@ -103,7 +103,7 @@ Three guards on the branch above, each earning its place:
 
 | Guard | Without it |
 | --- | --- |
-| `baseline_ready` | You enforce on a masked verdict during your warm-up window, when the tier you are reading is not the real one |
+| `baseline_ready` | You enforce during your warm-up window. The verdict is real and unmasked on this endpoint, so nothing else stops you |
 | `!degraded` | Harmless — a degraded verdict is `tier: "low"` — but stating it keeps the intent readable when the fail-open default changes |
 | `tier === "high"` | Enforcing on `medium` is a rate-limit decision, not a fraud decision |
 

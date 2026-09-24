@@ -7,7 +7,7 @@ import type { ResolvedFingerprintConfig } from "../salt.js";
 import { computeFingerprint, conversationKey } from "../fingerprint/index.js";
 
 /** Risk banding returned alongside the numeric score. */
-export type Tier = "low" | "medium" | "high" | (string & {});
+export type Tier = "low" | "medium" | "high";
 
 /**
  * Reason codes that can appear in a score response, as a hint for autocomplete.
@@ -20,11 +20,14 @@ export type Tier = "low" | "medium" | "high" | (string & {});
  * over this type, and why `reasons` is for your logs and support conversations
  * rather than for branching. `tier` is the field to act on.
  *
- * The server returns at most three, ordered by contribution.
+ * The algorithm returns at most three, ordered by contribution. Operational
+ * codes are added on top, so a response can carry more than three.
  *
  * Listed below by where the code comes from, because the three groups behave
  * differently — an operational code means the verdict was overridden and the
- * algorithm's opinion is not what you are looking at. See
+ * algorithm's opinion is not what you are looking at. Most are prepended, but
+ * `reputation_discount` is appended, so scan the whole array rather than
+ * checking `reasons[0]`. See
  * `docs/concepts/inference-scoring.md` for what each one means.
  */
 export type ReasonCode =
@@ -77,9 +80,10 @@ export interface AccountBlock {
    * one means "not provided" — it is gated off rather than defaulted, so a
    * partial block is never read as a favourable answer.
    *
-   * This is what drives the `account_risk` reason code, and the positive
-   * fields also earn a trust discount. Sent verbatim, like the rest of the
-   * block.
+   * `plan_type`, `has_payment_method`, `email_verified`, `prior_chargeback`
+   * and `billing_delinquent` feed the `account_risk` reason code.
+   * `identity_verified` and `trust_label` do not — they only earn a trust
+   * discount. Sent verbatim, like the rest of the block.
    */
   context?: AccountContextBlock;
   /**
@@ -99,7 +103,7 @@ export interface AccountContextBlock {
   identity_verified?: boolean;
   prior_chargeback?: boolean;
   billing_delinquent?: boolean;
-  /** "vip" | "allowlisted". Omit when none. */
+  /** e.g. "vip", "allowlisted", "allowlist", "trusted". Omit when none. */
   trust_label?: string;
 }
 
@@ -153,6 +157,11 @@ export interface RequestBlock {
    * The signed token from `/v1/sensor/collect`, forwarded by your backend.
    * The trusted, unforgeable way to join this call to the browser verdict —
    * it supersedes the plaintext `session_id` for fusion.
+   *
+   * Tokens are short-lived (~2 minutes). A token that fails verification or
+   * has expired skips fusion ENTIRELY rather than falling back to
+   * `session_id`, so a backend that caches one and forwards it later gets
+   * less signal than sending none. Forward it on the next call or not at all.
    */
   sensor_token?: string;
   /**
@@ -188,12 +197,15 @@ export interface ScoreRequest {
   account?: AccountBlock;
   request: RequestBlock;
   /**
-   * Idempotency key. A repeat of the same `event_id` returns the ORIGINAL
-   * verdict and scores nothing, flagged as `duplicate`.
+   * Idempotency key. A repeat of the same `event_id` replays the stored
+   * verdict and scores nothing, flagged as `duplicate` — useful when your own
+   * caller may retry, since it stops one request being billed and recorded
+   * twice.
    *
-   * It is also what makes an SDK-level retry safe, and therefore what enables
-   * retries on this call at all — without it a timed-out `score()` is a
-   * fail-open zero with no second attempt.
+   * The replay is NOT byte-identical: `baseline_ready` and `blocked` are not
+   * restored and come back `false`. Do not make an enforcement decision on a
+   * response carrying `duplicate: true` without allowing for that. This is
+   * also why `score()` does not retry internally even when you set this.
    */
   event_id?: string;
 }
@@ -202,9 +214,11 @@ export interface ScoreResponse {
   /** Calibrated [0,1] score. 0 = clean, 1 = certain fraud. */
   score: number;
   /**
-   * Banding of `score`. The default cuts are low (<0.4) | medium (<0.7) |
-   * high (>=0.7), but they are configurable per account — do not hardcode
-   * them, and do not switch exhaustively on this union.
+   * Banding of `score`: medium at >=0.30, high at >=0.60.
+   *
+   * Not a pure function of `score`. Traffic that trips the automation floor is
+   * lifted from low to medium whatever it scored, so a 0.05 can come back
+   * `medium` — that is the system working, not a bug.
    */
   tier: Tier;
   /**
@@ -219,8 +233,10 @@ export interface ScoreResponse {
   /** True during the customer's warm-up window. The score is still real. */
   shadow_mode: boolean;
   /**
-   * True when the account was manually blocked from the dashboard. The tier is
-   * forced to deny; reject the request.
+   * True when a hard control overrode the verdict — a manual block from the
+   * dashboard, OR a tripped account/org spend cap. Check `reasons` for which:
+   * `account_blocked` vs `spend_cap_exceeded:*`. Do not treat this as proof of
+   * fraud; the tier is forced to `high` and the score to `1.0` either way.
    */
   blocked?: boolean;
   /** True when a browser sensor event was folded into this score. */
@@ -266,8 +282,12 @@ export interface PostCallEvent {
   latency_ms?: number;
   /**
    * If omitted, the server computes cost from its bundled rate table — but
-   * only when a token count is present and non-zero. Omit all three and no
-   * cost is recorded at all.
+   * only when a token count is present and non-zero.
+   *
+   * Unlike the token counts above, this is NOT absent-vs-zero: omit all three
+   * and a cost of `0` is recorded, which reads as zero-value evidence, the
+   * same fraud tell the token counts warn about. Send a token count or an
+   * explicit cost.
    */
   inference_cost_usd?: number;
   /** Idempotency key. Also what makes an SDK-level retry safe. */
@@ -311,9 +331,15 @@ export class Inference {
       const body = await this.transport.post<ScoreResponse>(
         "/v1/score",
         this.prepare(req),
-        // Retries are gated on idempotency, never configured separately: a
-        // replayed score without an event_id would bill and record twice.
-        { idempotent: req.event_id !== undefined },
+        // DELIBERATELY false even when `event_id` is set, which is not the
+        // pattern the other endpoints follow. The server's replay response is
+        // built field by field and does not carry `baseline_ready` or
+        // `blocked`, so a replayed verdict reports both as `false` whatever
+        // they really were. Retrying here would therefore turn a timeout into
+        // a verdict that silently fails the usual enforcement guard — worse
+        // than the fail-open zero it was meant to avoid. Revisit when the
+        // replay path returns a complete verdict.
+        { idempotent: false },
       );
       // See the matching check in registrations.score(): syntactically valid
       // JSON is not proof of a verdict, and a silent pass-through would hand

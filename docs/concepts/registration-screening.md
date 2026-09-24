@@ -186,11 +186,13 @@ nobody can tell.
 4. **`form`** — fill telemetry. `pasted` is the valuable bit: scripted fills
    paste, humans type. `corrections` counts backspaces — humans make them,
    scripts do not.
-5. **`sensor_token`** — if you run the browser sensor, forward its token. It is
-   the trusted, unforgeable join to the browser verdict, and it supersedes the
-   plaintext `session_id` for that purpose.
-6. **Context** — `declared_country`, `user_agent`, `phone`, `username`,
-   `referrer`, `asn`, `ip_country`.
+5. **Context** — `declared_country`, `user_agent`, `phone`, `username`,
+   `referrer`, `asn`, `ip_country`, `sensor_token`.
+
+On this endpoint `sensor_token` is a **presence signal only**: we record whether
+a token accompanied the signup, and nothing more. It is not verified here and it
+is not joined to a browser verdict — that is `inference.score()`, where the same
+field means something much stronger.
 
 `@vectoral-labs/browser`'s `signupSignals()` produces 1, 3 and 4 in one call, already
 in the right shape.
