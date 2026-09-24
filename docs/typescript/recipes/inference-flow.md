@@ -52,7 +52,11 @@ export async function guardedCompletion(req: Request, prompt: string) {
     },
   });
 
-  // Enforce only on a verdict that is actually enforcement-grade.
+  // A hard control is not a risk judgement, so it is not subject to the
+  // warm-up guard below. Refuse it unconditionally.
+  if (verdict.blocked) throw new AbuseError(verdict.reasons);
+
+  // Enforce the risk verdict only once you have chosen to leave observe-only.
   if (verdict.tier === "high" && verdict.baseline_ready && !verdict.degraded) {
     throw new AbuseError(verdict.reasons);
   }
@@ -99,7 +103,14 @@ budget is tight: it happens after the user already has their answer.
 
 ## Enforcement, carefully
 
-Three guards on the branch above, each earning its place:
+The `blocked` check comes first and deliberately sits outside the guards below.
+`blocked` means you or your spend caps already decided — a manual block or a
+tripped cap — and that decision should not wait on a warm-up window. Folding it
+into the guarded branch is the bug worth avoiding here: during warm-up
+`baseline_ready` is `false`, so a single combined condition would let a blocked
+account straight through.
+
+Three guards on the risk branch, each earning its place:
 
 | Guard | Without it |
 | --- | --- |
@@ -107,8 +118,10 @@ Three guards on the branch above, each earning its place:
 | `!degraded` | Harmless — a degraded verdict is `tier: "low"` — but stating it keeps the intent readable when the fail-open default changes |
 | `tier === "high"` | Enforcing on `medium` is a rate-limit decision, not a fraud decision |
 
-During the warm-up window `shadow_mode` is `true` and the verdict you see is
-masked clean, so this code is safe to deploy before you are ready to enforce.
+During the warm-up window `shadow_mode` is `true` and `baseline_ready` is
+`false`. The verdict itself is real and unmasked — this endpoint never pins it —
+so it is the `baseline_ready` guard, and nothing else, that makes this code safe
+to deploy before you are ready to enforce.
 
 ### Every signal you send should be one you measured
 

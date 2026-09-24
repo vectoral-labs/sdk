@@ -238,8 +238,10 @@ export interface ScoreResponse {
    * `account_blocked` vs `spend_cap_exceeded:*`. Do not treat this as proof of
    * fraud; the tier is forced to `high` and the score to `1.0` either way.
    *
-   * Because the tier is forced, a guard on `tier === "high"` already refuses
-   * these. Read this field to explain the refusal, not to catch it.
+   * The tier is forced, so a guard on `tier === "high"` ALONE already refuses
+   * these. But the usual guard also requires `baseline_ready`, which is false
+   * throughout your warm-up window — so a combined condition lets a blocked
+   * account through. Check this field on its own, before the risk branch.
    */
   blocked?: boolean;
   /** True when a browser sensor event was folded into this score. */
