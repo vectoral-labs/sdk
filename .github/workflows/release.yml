@@ -117,7 +117,38 @@ jobs:
             npm publish --workspaces --dry-run
             exit 0
           fi
-          npm publish --workspaces
+          # Per package, not `--workspaces`, and skipping what is already
+          # published. `npm publish --workspaces` publishes in sequence and
+          # aborts on the first failure, which has bitten us twice: once when a
+          # 403 on the first package meant the second was never attempted, and
+          # again on the retry, when the now-published first package failed
+          # with EPUBLISHCONFLICT and again blocked the second. A release that
+          # half-succeeds must be retryable without burning a version number.
+          failed=0
+          for pkg in sdk browser; do
+            name=$(node -p "require('./packages/$pkg/package.json').name")
+            ver=$(node -p "require('./packages/$pkg/package.json').version")
+            if lookup=$(npm view "$name@$ver" version 2>&1); then
+              echo "--- $name@$ver already published, skipping"
+              continue
+            fi
+            # Only E404 means "not published". Any other failure — network,
+            # 5xx, auth — leaves us unable to tell, and guessing "missing"
+            # would publish over a version that already exists and fail the
+            # run anyway. Fail closed instead: a release that cannot be
+            # verified should not be attempted.
+            if ! printf '%s' "$lookup" | grep -q 'E404'; then
+              echo "::error::cannot determine whether $name@$ver is published; not publishing blind"
+              printf '%s\n' "$lookup"
+              failed=1
+              continue
+            fi
+            echo "--- publishing $name@$ver"
+            ( cd "packages/$pkg" && npm publish ) || failed=1
+          done
+          # Deliberately after the loop: one package failing must not stop the
+          # other from being attempted, but the run must still go red.
+          exit "$failed"
 
       - name: Confirm what landed
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
