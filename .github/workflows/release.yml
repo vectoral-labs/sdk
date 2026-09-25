@@ -128,8 +128,19 @@ jobs:
           for pkg in sdk browser; do
             name=$(node -p "require('./packages/$pkg/package.json').name")
             ver=$(node -p "require('./packages/$pkg/package.json').version")
-            if npm view "$name@$ver" version >/dev/null 2>&1; then
+            if lookup=$(npm view "$name@$ver" version 2>&1); then
               echo "--- $name@$ver already published, skipping"
+              continue
+            fi
+            # Only E404 means "not published". Any other failure — network,
+            # 5xx, auth — leaves us unable to tell, and guessing "missing"
+            # would publish over a version that already exists and fail the
+            # run anyway. Fail closed instead: a release that cannot be
+            # verified should not be attempted.
+            if ! printf '%s' "$lookup" | grep -q 'E404'; then
+              echo "::error::cannot determine whether $name@$ver is published; not publishing blind"
+              printf '%s\n' "$lookup"
+              failed=1
               continue
             fi
             echo "--- publishing $name@$ver"
