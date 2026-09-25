@@ -3,14 +3,13 @@
 Two packages. Which one you need depends on where the code runs.
 
 ```bash
-npm install @vectoral-labs/sdk@beta       # your server
-npm install @vectoral-labs/browser@beta   # your signup/app pages
+npm install @vectoral-labs/sdk       # your server
+npm install @vectoral-labs/browser   # your signup/app pages
 ```
 
-> **`@beta` is not optional.** Both packages publish under the `beta` dist-tag
-> while the API surface settles, so neither is `latest` — the same command
-> without `@beta` resolves nothing at all. See
-> [Status](../../README.md#status).
+> **`0.x`, and the API surface may still move.** Both packages publish to
+> `latest`, so a plain install works — but pin an exact version if you need
+> stability across releases. See [Status](../../README.md#status).
 
 ## Server, in three lines
 

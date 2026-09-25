@@ -130,19 +130,29 @@ npm view @vectoral-labs/browser
 There is a dry run — Actions → Release → Run workflow, `dry_run: true` — which
 packs and validates without publishing. Use it after any change to `release.yml`.
 
-### `beta` is the dist-tag
+### npm ignores `publishConfig.tag`
 
-`publishConfig` sets `access: public` and `tag: beta`, so nothing published goes
-to `latest` and a plain `npm install @vectoral-labs/sdk` **resolves nothing**.
-That is intended while the API surface moves, and it is why every install
-command in the docs carries `@beta`. If you add one, it needs `@beta` too.
+Both packages publish to `latest`, which is what we want — but do not assume
+`publishConfig` is what puts them there. On npm 11.x the `tag` field is
+**silently ignored**. Verified on 11.19.0: with `publishConfig.tag: "beta"` set
+on both packages, `npm publish --dry-run` reported
 
-Promoting to `latest` is a separate, deliberate act that the release workflow
-does not perform:
-
-```bash
-npm dist-tag add @vectoral-labs/sdk@X.Y.Z latest
 ```
+npm notice Publishing to https://registry.npmjs.org/ with tag latest
+```
+
+from the workspace root *and* from inside each package, while an explicit
+`npm publish --tag beta` was honoured. The field was correctly formed; npm just
+did not read it.
+
+So if you ever want a pre-release tag, `publishConfig` will not give you one and
+will not tell you it failed. Pass `--tag` explicitly in `release.yml` and verify
+with a `--dry-run` before you tag, because the first place you would otherwise
+notice is the registry, where it cannot be undone.
+
+The field has been removed rather than left in place asserting an intent that
+does not happen — if a later npm starts honouring it, the dist-tag would flip
+without anyone touching the repo.
 
 ### A 404 at publish time is lying to you
 

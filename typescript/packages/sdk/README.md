@@ -7,7 +7,7 @@ only meaningful when your own server observed it. Browser-side collection lives
 in [`@vectoral-labs/browser`](https://www.npmjs.com/package/@vectoral-labs/browser).
 
 ```bash
-npm install @vectoral-labs/sdk@beta
+npm install @vectoral-labs/sdk
 ```
 
 ```ts
@@ -39,7 +39,8 @@ an expired key looks exactly like a flow where every request is legitimate.
 
 ## Status
 
-`0.x`, published under the `beta` tag. The API surface may still move.
+`0.x`, published to `latest`. The API surface may still move, so pin an
+exact version if you need stability across releases.
 
 ## License
 
