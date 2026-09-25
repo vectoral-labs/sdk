@@ -71,8 +71,12 @@ export interface RegistrationRequest {
   referrer?: string;
   /**
    * Whole-call budget in ms for the server's external lookups. Defaults to 400
-   * server-side and is clamped to [250, 2000] rather than rejected. The SDK
-   * raises its own HTTP timeout to sit above whatever you set here.
+   * server-side and is clamped to [250, 6000] rather than rejected. The SDK
+   * keeps its own HTTP timeout above whatever you set here.
+   *
+   * The 6s ceiling is a ceiling, not a recommendation — most integrations
+   * should stay near the 400ms default. A tight deadline costs first-sightings
+   * of a domain, not correctness.
    */
   deadline_ms?: number;
 }
@@ -126,7 +130,10 @@ interface RegistrationResponseBody {
 }
 
 const DEADLINE_MIN_MS = 250;
-const DEADLINE_MAX_MS = 2000;
+// Matches the server's ceiling. If these drift apart the SDK aborts a request
+// the server is still working on, which is the exact fail-open this file exists
+// to prevent — previously 2000 against a server ceiling of 6000.
+const DEADLINE_MAX_MS = 6000;
 /** Headroom over the server-side deadline for TLS, queueing, and the response. */
 const DEADLINE_OVERHEAD_MS = 300;
 

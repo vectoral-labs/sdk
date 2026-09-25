@@ -33,6 +33,7 @@ export type {
   PostCallEvent,
   OkResponse,
   AccountBlock,
+  AccountContextBlock,
   RequestBlock,
   SessionSignals,
   PromptFingerprintBlock,

@@ -189,6 +189,11 @@ nobody can tell.
 5. **Context** — `declared_country`, `user_agent`, `phone`, `username`,
    `referrer`, `asn`, `ip_country`, `sensor_token`.
 
+On this endpoint `sensor_token` is a **presence signal only**: we record whether
+a token accompanied the signup, and nothing more. It is not verified here and it
+is not joined to a browser verdict — that is `inference.score()`, where the same
+field means something much stronger.
+
 `@vectoral-labs/browser`'s `signupSignals()` produces 1, 3 and 4 in one call, already
 in the right shape.
 
@@ -223,8 +228,9 @@ aggressively but slow the first time a domain is seen.
 await vectoral.registrations.score({ email, deadline_ms: 600 });
 ```
 
-`deadline_ms` defaults to `400` and is **clamped** to `[250, 2000]` rather than
-rejected. When a lookup misses the deadline its signals are simply absent from
+`deadline_ms` defaults to `400` and is **clamped** to `[250, 6000]` rather than
+rejected. The ceiling is a ceiling, not a recommendation — most integrations
+should stay near the default. When a lookup misses the deadline its signals are simply absent from
 that verdict — **and the lookup still finishes in the background**, so the next
 signup from that domain has them. A tight deadline costs first-sightings, not
 correctness.

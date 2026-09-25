@@ -7,6 +7,7 @@ work with.
 
 ```ts
 import { Vectoral, VectoralError } from "@vectoral-labs/sdk";
+import type { PostCallEvent } from "@vectoral-labs/sdk";
 
 const vectoral = new Vectoral({
   apiKey: process.env.VECTORAL_API_KEY,
@@ -51,9 +52,28 @@ export async function guardedCompletion(req: Request, prompt: string) {
     },
   });
 
-  // Enforce only on a verdict that is actually enforcement-grade.
-  if (verdict.tier === "high" && verdict.baseline_ready && !verdict.degraded) {
-    throw new AbuseError(verdict.reasons);
+  if (verdict.duplicate) {
+    // A replay drops `blocked` and `baseline_ready`. Both can be rebuilt from
+    // what it does restore: hard controls name themselves in `reasons`, and on
+    // a server response `baseline_ready` is the inverse of `shadow_mode`. Safe
+    // to rely on here specifically, because `duplicate` is only ever true on a
+    // real response — the SDK's fail-open default sets both flags false.
+    const hardControl = verdict.reasons.some(
+      (r) => r === "account_blocked" || r.startsWith("spend_cap_exceeded"),
+    );
+    if (hardControl) throw new AbuseError(verdict.reasons);
+    if (verdict.tier === "high" && !verdict.shadow_mode) {
+      throw new AbuseError(verdict.reasons);
+    }
+  } else {
+    // A hard control is not a risk judgement, so it is not subject to the
+    // warm-up guard below. Refuse it unconditionally.
+    if (verdict.blocked) throw new AbuseError(verdict.reasons);
+
+    // Enforce the risk verdict only once you have left observe-only.
+    if (verdict.tier === "high" && verdict.baseline_ready && !verdict.degraded) {
+      throw new AbuseError(verdict.reasons);
+    }
   }
 
   const started = Date.now();
@@ -98,16 +118,48 @@ budget is tight: it happens after the user already has their answer.
 
 ## Enforcement, carefully
 
-Three guards on the branch above, each earning its place:
+**Replays are handled separately, and must be.** If you send an `event_id` and
+your own caller retries, the second response is a replay: `score`, `tier`,
+`reasons` and `shadow_mode` are the original, but `blocked` and `baseline_ready`
+are not restored and arrive `false` whatever they really were.
+
+Run a replay through the guards below and both pass, so a blocked account gets
+served. Refusing on `tier` alone overcorrects the other way — a merely risky
+verdict replayed during warm-up would be refused when the same verdict, not
+replayed, is allowed, so a retry would turn an allowed request into an error.
+
+Both lost fields can be rebuilt from what survives. Hard controls name
+themselves in `reasons` (`account_blocked`, `spend_cap_exceeded:*`), and on a
+server response `baseline_ready` is the inverse of `shadow_mode`, which is
+restored.
+
+That inverse holds for responses the server sent, not for every `ScoreResponse`
+you can hold: the SDK's fail-open default sets `baseline_ready`, `shadow_mode`
+**and** `degraded` such that both flags read `false`. It is safe to lean on
+inside this branch only because `duplicate` is never true on that default.
+
+If you do not send `event_id`, `duplicate` is never true and this branch costs
+you nothing. That is a reasonable reason not to send one.
+
+The `blocked` check comes first and deliberately sits outside the guards below.
+`blocked` means you or your spend caps already decided — a manual block or a
+tripped cap — and that decision should not wait on a warm-up window. Folding it
+into the guarded branch is the bug worth avoiding here: during warm-up
+`baseline_ready` is `false`, so a single combined condition would let a blocked
+account straight through.
+
+Three guards on the risk branch, each earning its place:
 
 | Guard | Without it |
 | --- | --- |
-| `baseline_ready` | You enforce against a provisional score on accounts too new to judge |
+| `baseline_ready` | You enforce during your warm-up window. On a server response it is the inverse of `shadow_mode`, and since the verdict is real and unmasked on this endpoint, it is the only thing stopping you. Do not read the inverse backwards: the SDK's fail-open default sets **both** to `false`, which is what `!degraded` is for |
 | `!degraded` | Harmless — a degraded verdict is `tier: "low"` — but stating it keeps the intent readable when the fail-open default changes |
 | `tier === "high"` | Enforcing on `medium` is a rate-limit decision, not a fraud decision |
 
-During the warm-up window `shadow_mode` is `true` and the verdict you see is
-masked clean, so this code is safe to deploy before you are ready to enforce.
+During the warm-up window `shadow_mode` is `true` and `baseline_ready` is
+`false`. The verdict itself is real and unmasked — this endpoint never pins it —
+so it is the `baseline_ready` guard, and nothing else, that makes this code safe
+to deploy before you are ready to enforce.
 
 ### Every signal you send should be one you measured
 

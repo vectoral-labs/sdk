@@ -70,7 +70,7 @@ it into the score call, where the IP it observed is added.
 
 ## Runtime support
 
-- **`@vectoral-labs/sdk`** — Node 18+, Deno, Bun, and edge runtimes. Needs a global
+- **`@vectoral-labs/sdk`** — Node 20+, Deno, Bun, and edge runtimes. Needs a global
   `fetch`, or pass one via the `fetch` option. ESM and CJS builds ship.
 - **`@vectoral-labs/browser`** — any modern browser. No dependencies, no Node
   builtins, side-effect free. `deviceFingerprint()` prefers SubtleCrypto and

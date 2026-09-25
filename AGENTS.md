@@ -14,7 +14,7 @@ scripts/                 maintainer tooling
 ```bash
 cd typescript
 npm ci
-npm test          # vitest, 150 tests
+npm test
 npm run typecheck
 npm run build     # tsup, both packages
 ```
@@ -77,6 +77,12 @@ fires on a `v*` tag.
 
 Three things are load-bearing and easy to break:
 
+- **A `v*` tag releases with no approval gate.** No environment, no reviewer —
+  the tag *is* the release, from any branch. It is not unconditional: the
+  workflow refuses to publish if the tag disagrees with either `package.json`,
+  and tests, typecheck and build all run first. So a stray `v0.0.1-test` fails
+  the version check rather than publishing — but a tag that *does* match a
+  version ships the moment you push it, with nobody asked.
 - **The workflow filename is part of the trust.** Renaming or moving
   `release.yml` makes npm reject the publish until the trusted-publisher config
   is updated to match.

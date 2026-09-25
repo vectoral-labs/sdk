@@ -68,7 +68,11 @@ to what you send.
 
 ## Warm-up
 
-A new account begins in a shadow-mode window. Responses carry
-`shadow_mode: true` and the verdict is pinned to the permissive value, while the
-real verdict is still computed and recorded. Integrate, deploy, and confirm your
-wiring without challenging anybody; then start enforcing.
+Your account begins in a shadow-mode window — one window per customer, not one
+per end-user. Responses carry `shadow_mode: true`.
+
+What that means differs by endpoint, and the difference matters. For
+**registration screening** the tier is genuinely pinned to `0`, so you can
+integrate and deploy without challenging anybody. For **inference scoring** the
+verdict is real and unmasked throughout — if you want to observe rather than
+enforce during warm-up, branch on `shadow_mode` yourself.

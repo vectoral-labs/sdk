@@ -65,45 +65,18 @@ labels, distinct from the account labels `vectoral.labels` covers),
 
 CI gates every PR on tests, typecheck, build, and a full consumer install of
 both tarballs. Publishing happens in GitHub Actions via npm **trusted
-publishing** — OIDC, no `NPM_TOKEN` anywhere in the repo or its secrets.
+publishing** — OIDC, no `NPM_TOKEN` anywhere in the repo or its secrets, and a
+provenance attestation on every tarball tying it to the commit and workflow that
+produced it.
 
-```bash
-cd typescript
-npm version <patch|minor|major> --workspaces --include-workspace-root
-cd .. && git push && git push --tags      # a v* tag triggers the release
-```
+The procedure, the trusted-publisher settings, and the traps — a `v*` tag
+publishes with no approval gate, `beta` is the dist-tag so a plain
+`npm install` resolves nothing, and a 404 at publish time means three different
+things — are in [`AGENTS.md`](AGENTS.md#releasing).
 
-`.github/workflows/release.yml` re-runs the tests, refuses to publish if the tag
-disagrees with `package.json`, and publishes both packages. npm generates a
-provenance attestation automatically, so every tarball is cryptographically
-tied to the commit and workflow that produced it.
-
-`--dry-run` is available through the Actions tab (`workflow_dispatch`) if you
-want to rehearse without publishing.
-
-`dist/` is gitignored, so `prepublishOnly` is what guarantees the tarball holds
-fresh bytes.
-
-### One-time setup
-
-Trusted publishing is configured per package at **npmjs.com → package →
-Settings → Trusted Publisher**:
-
-| Field | Value |
-| --- | --- |
-| Organization or user | `vectoral-labs` |
-| Repository | `sdk` |
-| Workflow filename | `release.yml` |
-| Environment | leave blank |
-
-The workflow **filename** is part of what npm trusts, so renaming or moving
-`release.yml` breaks publishing until the config is updated to match.
-
-npm's docs describe adding a trusted publisher from an existing package's
-settings page, which implies the very first publish of a brand-new package name
-still needs a manual, authenticated `npm publish`. Check the npm UI when you get
-there — if the setting is available before the first publish, skip the manual
-step entirely.
+Kept in one place deliberately: this section and that one drifted apart twice
+while the repo was young, most recently over a version-bump flag that silently
+wrote a version into a package that is never published.
 
 ## Development
 
