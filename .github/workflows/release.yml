@@ -117,7 +117,27 @@ jobs:
             npm publish --workspaces --dry-run
             exit 0
           fi
-          npm publish --workspaces
+          # Per package, not `--workspaces`, and skipping what is already
+          # published. `npm publish --workspaces` publishes in sequence and
+          # aborts on the first failure, which has bitten us twice: once when a
+          # 403 on the first package meant the second was never attempted, and
+          # again on the retry, when the now-published first package failed
+          # with EPUBLISHCONFLICT and again blocked the second. A release that
+          # half-succeeds must be retryable without burning a version number.
+          failed=0
+          for pkg in sdk browser; do
+            name=$(node -p "require('./packages/$pkg/package.json').name")
+            ver=$(node -p "require('./packages/$pkg/package.json').version")
+            if npm view "$name@$ver" version >/dev/null 2>&1; then
+              echo "--- $name@$ver already published, skipping"
+              continue
+            fi
+            echo "--- publishing $name@$ver"
+            ( cd "packages/$pkg" && npm publish ) || failed=1
+          done
+          # Deliberately after the loop: one package failing must not stop the
+          # other from being attempted, but the run must still go red.
+          exit "$failed"
 
       - name: Confirm what landed
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
