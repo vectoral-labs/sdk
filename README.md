@@ -69,9 +69,9 @@ provenance attestation on every tarball tying it to the commit and workflow that
 produced it.
 
 The procedure, the trusted-publisher settings, and the traps — a `v*` tag
-publishes with no approval gate, npm ignores `publishConfig.tag` so the dist-tag
-must be explicit, and a 404 at publish time means three different things — are
-in [`AGENTS.md`](AGENTS.md#releasing).
+publishes with no approval gate, npm ignores `publishConfig.tag` so `latest` is
+the default and any other tag needs an explicit flag, and a 404 at publish time
+means three different things — are in [`AGENTS.md`](AGENTS.md#releasing).
 
 Kept in one place deliberately: this section and that one drifted apart twice
 while the repo was young, most recently over a version-bump flag that silently

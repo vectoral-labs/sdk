@@ -102,13 +102,19 @@ jobs:
       - name: Publish
         # `prepublishOnly` rebuilds dist again — cheap, and the only thing
         # standing between a gitignored build directory and a stale tarball.
-        # Access and dist-tag come from each package's `publishConfig`.
+        # `access: public` comes from each package's `publishConfig`. The
+        # dist-tag does NOT — npm ignores `publishConfig.tag`, so `latest` is
+        # npm's default and anything else needs an explicit `--tag`.
         # Provenance is automatic under trusted publishing.
         working-directory: typescript
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
-            echo "Dry run — packing only."
-            for pkg in sdk browser; do ( cd "packages/$pkg" && npm pack --dry-run ); done
+            # `publish --dry-run`, not `pack --dry-run`: it validates the same
+            # tarball AND reports the dist-tag the real run would use. npm
+            # ignores publishConfig.tag silently, so a dry run that cannot show
+            # the tag cannot catch the one mistake you cannot undo.
+            echo "Dry run — validating and reporting the dist-tag, publishing nothing."
+            npm publish --workspaces --dry-run
             exit 0
           fi
           npm publish --workspaces

@@ -128,7 +128,13 @@ npm view @vectoral-labs/browser
 ```
 
 There is a dry run — Actions → Release → Run workflow, `dry_run: true` — which
-packs and validates without publishing. Use it after any change to `release.yml`.
+runs `npm publish --workspaces --dry-run`, which validates the tarballs and
+reports the dist-tag the real run would use, without publishing. Use it after
+any change to `release.yml` or to either `publishConfig`.
+
+It deliberately does not use `npm pack --dry-run`, which validates the same
+tarball but says nothing about the dist-tag — and the dist-tag is the part that
+fails silently.
 
 ### npm ignores `publishConfig.tag`
 
@@ -145,10 +151,11 @@ from the workspace root *and* from inside each package, while an explicit
 `npm publish --tag beta` was honoured. The field was correctly formed; npm just
 did not read it.
 
-So if you ever want a pre-release tag, `publishConfig` will not give you one and
-will not tell you it failed. Pass `--tag` explicitly in `release.yml` and verify
-with a `--dry-run` before you tag, because the first place you would otherwise
-notice is the registry, where it cannot be undone.
+We publish to `latest`, which is npm's default, so the current procedure needs
+no flag. But if you ever want a pre-release tag, `publishConfig` will not give
+you one and will not tell you it failed — pass `--tag` explicitly in
+`release.yml`, and confirm it with the dry run below before you tag. The first
+place you would otherwise notice is the registry, where it cannot be undone.
 
 The field has been removed rather than left in place asserting an intent that
 does not happen — if a later npm starts honouring it, the dist-tag would flip
