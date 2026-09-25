@@ -54,8 +54,10 @@ export async function guardedCompletion(req: Request, prompt: string) {
 
   if (verdict.duplicate) {
     // A replay drops `blocked` and `baseline_ready`. Both can be rebuilt from
-    // what it does restore: hard controls name themselves in `reasons`, and
-    // `baseline_ready` is exactly the inverse of the restored `shadow_mode`.
+    // what it does restore: hard controls name themselves in `reasons`, and on
+    // a server response `baseline_ready` is the inverse of `shadow_mode`. Safe
+    // to rely on here specifically, because `duplicate` is only ever true on a
+    // real response — the SDK's fail-open default sets both flags false.
     const hardControl = verdict.reasons.some(
       (r) => r === "account_blocked" || r.startsWith("spend_cap_exceeded"),
     );
@@ -127,8 +129,14 @@ verdict replayed during warm-up would be refused when the same verdict, not
 replayed, is allowed, so a retry would turn an allowed request into an error.
 
 Both lost fields can be rebuilt from what survives. Hard controls name
-themselves in `reasons` (`account_blocked`, `spend_cap_exceeded:*`), and
-`baseline_ready` is exactly the inverse of `shadow_mode`, which is restored.
+themselves in `reasons` (`account_blocked`, `spend_cap_exceeded:*`), and on a
+server response `baseline_ready` is the inverse of `shadow_mode`, which is
+restored.
+
+That inverse holds for responses the server sent, not for every `ScoreResponse`
+you can hold: the SDK's fail-open default sets `baseline_ready`, `shadow_mode`
+**and** `degraded` such that both flags read `false`. It is safe to lean on
+inside this branch only because `duplicate` is never true on that default.
 
 If you do not send `event_id`, `duplicate` is never true and this branch costs
 you nothing. That is a reasonable reason not to send one.
@@ -144,7 +152,7 @@ Three guards on the risk branch, each earning its place:
 
 | Guard | Without it |
 | --- | --- |
-| `baseline_ready` | You enforce during your warm-up window. It is the inverse of `shadow_mode` — false exactly when that is true — and since the verdict is real and unmasked on this endpoint, it is the only thing stopping you |
+| `baseline_ready` | You enforce during your warm-up window. On a server response it is the inverse of `shadow_mode`, and since the verdict is real and unmasked on this endpoint, it is the only thing stopping you. Do not read the inverse backwards: the SDK's fail-open default sets **both** to `false`, which is what `!degraded` is for |
 | `!degraded` | Harmless — a degraded verdict is `tier: "low"` — but stating it keeps the intent readable when the fail-open default changes |
 | `tier === "high"` | Enforcing on `medium` is a rate-limit decision, not a fraud decision |
 
