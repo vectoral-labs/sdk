@@ -128,21 +128,38 @@ npm view @vectoral-labs/browser
 ```
 
 There is a dry run — Actions → Release → Run workflow, `dry_run: true` — which
-packs and validates without publishing. Use it after any change to `release.yml`.
+runs `npm publish --workspaces --dry-run`, which validates the tarballs and
+reports the dist-tag the real run would use, without publishing. Use it after
+any change to `release.yml` or to either `publishConfig`.
 
-### `beta` is the dist-tag
+It deliberately does not use `npm pack --dry-run`, which validates the same
+tarball but says nothing about the dist-tag — and the dist-tag is the part that
+fails silently.
 
-`publishConfig` sets `access: public` and `tag: beta`, so nothing published goes
-to `latest` and a plain `npm install @vectoral-labs/sdk` **resolves nothing**.
-That is intended while the API surface moves, and it is why every install
-command in the docs carries `@beta`. If you add one, it needs `@beta` too.
+### npm ignores `publishConfig.tag`
 
-Promoting to `latest` is a separate, deliberate act that the release workflow
-does not perform:
+Both packages publish to `latest`, which is what we want — but do not assume
+`publishConfig` is what puts them there. On npm 11.x the `tag` field is
+**silently ignored**. Verified on 11.19.0: with `publishConfig.tag: "beta"` set
+on both packages, `npm publish --dry-run` reported
 
-```bash
-npm dist-tag add @vectoral-labs/sdk@X.Y.Z latest
 ```
+npm notice Publishing to https://registry.npmjs.org/ with tag latest
+```
+
+from the workspace root *and* from inside each package, while an explicit
+`npm publish --tag beta` was honoured. The field was correctly formed; npm just
+did not read it.
+
+We publish to `latest`, which is npm's default, so the current procedure needs
+no flag. But if you ever want a pre-release tag, `publishConfig` will not give
+you one and will not tell you it failed — pass `--tag` explicitly in
+`release.yml`, and confirm it with the dry run below before you tag. The first
+place you would otherwise notice is the registry, where it cannot be undone.
+
+The field has been removed rather than left in place asserting an intent that
+does not happen — if a later npm starts honouring it, the dist-tag would flip
+without anyone touching the repo.
 
 ### A 404 at publish time is lying to you
 

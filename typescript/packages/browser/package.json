@@ -39,7 +39,6 @@
     "node": ">=20"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "beta"
+    "access": "public"
   }
 }

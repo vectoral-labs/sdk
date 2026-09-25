@@ -7,7 +7,7 @@ Zero dependencies. Holds no secrets, and **never talks to Vectoral** — it hand
 values to your page, and your backend forwards them.
 
 ```bash
-npm install @vectoral-labs/browser@beta
+npm install @vectoral-labs/browser
 ```
 
 ```js
@@ -47,7 +47,8 @@ The file is `dist/vectoral-fingerprint.js` in this package — host it yourself.
 
 ## Status
 
-`0.x`, published under the `beta` tag. The API surface may still move.
+`0.x`, published to `latest`. The API surface may still move, so pin an
+exact version if you need stability across releases.
 
 ## License
 

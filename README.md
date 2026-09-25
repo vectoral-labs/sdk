@@ -44,9 +44,8 @@ forwards.
 
 ## Status
 
-`0.x`. Both packages publish under the **`beta`** dist-tag, so `npm install
-@vectoral-labs/sdk` will not pick them up as `latest` — ask for `@beta` explicitly.
-The API surface is expected to move.
+`0.x`, published to `latest`. The API surface is expected to move, so pin an
+exact version if you need stability across releases.
 
 The prompt-fingerprint implementation is a port of the normative Go one and is
 verified against its golden vectors — see
@@ -70,9 +69,9 @@ provenance attestation on every tarball tying it to the commit and workflow that
 produced it.
 
 The procedure, the trusted-publisher settings, and the traps — a `v*` tag
-publishes with no approval gate, `beta` is the dist-tag so a plain
-`npm install` resolves nothing, and a 404 at publish time means three different
-things — are in [`AGENTS.md`](AGENTS.md#releasing).
+publishes with no approval gate, npm ignores `publishConfig.tag` so `latest` is
+the default and any other tag needs an explicit flag, and a 404 at publish time
+means three different things — are in [`AGENTS.md`](AGENTS.md#releasing).
 
 Kept in one place deliberately: this section and that one drifted apart twice
 while the repo was young, most recently over a version-bump flag that silently
