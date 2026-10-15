@@ -19,6 +19,7 @@ deploy without breaking your own funnel.
 | Page | What it covers |
 | --- | --- |
 | [Quickstart](typescript/README.md) | Install, configure, first call |
+| [Install instructions for agents](../INSTALL.md) | Pick the package by runtime, install, and wire it up |
 | [Server SDK](typescript/server-sdk.md) | `@vectoral-labs/sdk` reference |
 | [Browser SDK](typescript/browser-sdk.md) | `@vectoral-labs/browser` reference |
 | [Recipe: signup flow](typescript/recipes/signup-flow.md) | End-to-end screening, browser through to label |
