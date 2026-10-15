@@ -38,13 +38,17 @@ if (verdict.tier >= RegistrationTier.StepUp) return requireStepUp();
 ```
 
 `apiKey` falls back to `VECTORAL_API_KEY` and `baseUrl` to `VECTORAL_BASE_URL`,
-so a typical app passes neither. The constructor throws `VectoralConfigError`
-for a missing credential, both credentials, or no `fetch`.
+so a typical app passes neither. **`baseUrl` is your deployment's endpoint** —
+the hosted `https://api.vectoral.cloud` unless you self-host, run in your own
+VPC, or serve a custom domain. Your Vectoral dashboard shows the exact base URL;
+set `baseUrl` (or `VECTORAL_BASE_URL`) to it when it is not the hosted default.
+The constructor throws `VectoralConfigError` for a missing credential, both
+credentials, or no `fetch`.
 
 | Variable | Used for |
 | --- | --- |
 | `VECTORAL_API_KEY` | Secret API key (`vg_live_…`) |
-| `VECTORAL_BASE_URL` | API base URL; defaults to the hosted endpoint |
+| `VECTORAL_BASE_URL` | Your deployment's API base URL; defaults to the hosted `https://api.vectoral.cloud` |
 | `VECTORAL_FINGERPRINT_SALT` | Secret tenant salt for prompt fingerprinting |
 | `VECTORAL_FINGERPRINT_SALT_ID` | Generation label for that salt, e.g. `s_2026_09` |
 

@@ -14,7 +14,7 @@ const vectoral = new Vectoral({ apiKey: process.env.VECTORAL_API_KEY });
 | --- | --- | --- |
 | `apiKey` | `VECTORAL_API_KEY` | Sent as `Authorization: Bearer` |
 | `customerId` | — | `X-Customer-ID` header auth, for self-host. Mutually exclusive with `apiKey` |
-| `baseUrl` | `VECTORAL_BASE_URL`, then `https://api.vectoral.cloud` | Trailing slashes stripped |
+| `baseUrl` | `VECTORAL_BASE_URL`, then the hosted `https://api.vectoral.cloud` | Trailing slashes stripped. Set it to your deployment's endpoint when that is not the hosted default |
 | `timeoutMs` | `5000` | Per request |
 | `retries` | `2` | **Only applied to calls carrying an `event_id`** |
 | `failOpen` | `true` | Scoring calls degrade instead of throwing |
