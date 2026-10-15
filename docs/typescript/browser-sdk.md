@@ -22,7 +22,9 @@ endpoint.
 ```js
 import { trackForm, signupSignals } from "@vectoral-labs/browser";
 
-const tracker = trackForm(document.querySelector("#signup"));
+const form = document.querySelector("#signup");
+const emailInput = form.querySelector('input[name="email"]');
+const tracker = trackForm(form);
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();

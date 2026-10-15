@@ -4,6 +4,21 @@ Client libraries for the [Vectoral](https://vectoral.cloud) fraud-scoring API �
 screening signups before the account exists, scoring LLM inference traffic, and
 collecting the browser-side signals that make both sharper.
 
+## Agent Install
+
+Using an AI coding agent? Point it at:
+
+```text
+https://raw.githubusercontent.com/vectoral-labs/sdk/main/INSTALL.md
+```
+
+Or install the packages directly:
+
+```bash
+npm install @vectoral-labs/sdk       # your server
+npm install @vectoral-labs/browser   # your signup/app pages
+```
+
 ## Layout
 
 ```
@@ -41,6 +56,7 @@ forwards.
 - **Scoring inference traffic** → [`docs/concepts/inference-scoring.md`](docs/concepts/inference-scoring.md)
 - **Choosing salts** → [`docs/concepts/salts.md`](docs/concepts/salts.md)
 - **TypeScript quickstart** → [`docs/typescript/README.md`](docs/typescript/README.md)
+- **Adding the SDK to a project, for agents** → [`INSTALL.md`](INSTALL.md)
 
 ## Status
 
