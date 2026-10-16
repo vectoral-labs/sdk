@@ -22,14 +22,16 @@ const verdict = await vectoral.registrations.score({ email, ip: req.ip });
 ```
 
 `apiKey` falls back to `VECTORAL_API_KEY` and `baseUrl` to `VECTORAL_BASE_URL`,
-so a typical app passes neither.
+so a typical app passes neither. `baseUrl` is **your deployment's endpoint** — the
+hosted `https://api.vectoral.cloud` unless you self-host or serve a custom domain;
+your Vectoral dashboard shows it.
 
 ## Configuration
 
 ```ts
 const vectoral = new Vectoral({
   apiKey: process.env.VECTORAL_API_KEY,   // or VECTORAL_API_KEY
-  baseUrl: "https://api.vectoral.cloud",  // or VECTORAL_BASE_URL
+  baseUrl: process.env.VECTORAL_BASE_URL, // your deployment's endpoint
   timeoutMs: 5000,
   retries: 2,                             // only for calls with an event_id
   failOpen: true,                         // scoring calls degrade, never throw
@@ -50,7 +52,7 @@ Self-hosted deployments running in header auth mode pass `customerId` instead of
 | Variable | Used for |
 | --- | --- |
 | `VECTORAL_API_KEY` | Secret API key (`vg_live_…`) |
-| `VECTORAL_BASE_URL` | API base URL; defaults to the hosted endpoint |
+| `VECTORAL_BASE_URL` | Your deployment's API base URL; defaults to the hosted `https://api.vectoral.cloud` |
 | `VECTORAL_FINGERPRINT_SALT` | Secret tenant salt for prompt fingerprinting |
 | `VECTORAL_FINGERPRINT_SALT_ID` | Generation label for that salt, e.g. `s_2026_09` |
 

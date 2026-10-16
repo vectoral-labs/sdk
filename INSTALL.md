@@ -16,6 +16,11 @@ fingerprinting, fail-open handling, and automatic retries on the calls that are
 safe to repeat; the API path is the same integration written by hand, in whatever
 language the project already uses.
 
+Both paths talk to **your deployment's endpoint** — the hosted
+`https://api.vectoral.cloud` unless you self-host, run in your own VPC, or serve a
+custom domain. Your Vectoral dashboard shows the exact base URL: substitute it
+wherever a snippet shows the hosted default.
+
 If the project also has a signup or app page in a browser, read
 **[`BROWSER.md`](BROWSER.md)**. It is optional, works with either server-side
 path, and the standalone `<script>` there needs no build step.
