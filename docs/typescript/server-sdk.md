@@ -275,6 +275,13 @@ await vectoral.data.integrationStatus({ window: "7d" }); // which signals live t
 Every import event needs an `event_id`, so a batch is retried on a transient
 failure and a repeat reports `duplicate`. Its timeout is at least 30 seconds.
 
+A `score` event goes through the same preparation as `inference.score()`:
+`request.prompt_text_to_fingerprint` is stripped, and becomes a
+`prompt_fingerprint` under your live salt when fingerprinting is on, so imported
+and live fingerprints can match. An imported row reads back with `score: 0` and
+`tier: ""` until it is scored (`StoredTier` in the read types); that `0` means
+"not scored".
+
 ## Webhooks
 
 ```ts

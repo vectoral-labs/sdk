@@ -43,7 +43,10 @@ share a version.
 - `accounts.list()`, `get()`, `scores()`, `setContext()`, `recordCommerce()`
   and `stats()`.
 - `imports.send()` and `imports.get()` for `POST /v1/import` and its status;
-  `data.status()` and `data.integrationStatus()`.
+  `data.status()` and `data.integrationStatus()`. Imported `score` events are
+  prepared like `inference.score()` requests: `prompt_text_to_fingerprint` is
+  stripped and fingerprinted with your salt. Score history types allow the
+  `tier: ""` an imported row has until it is scored.
 - `verifyWebhookSignature()`, `parseWebhook()` and `signWebhookPayload()` for
   the `x-vectoral-signature` scheme, tested against vectors produced by the
   server's own signer. Typed envelopes for every webhook event, and

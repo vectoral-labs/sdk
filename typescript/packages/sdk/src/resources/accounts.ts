@@ -9,6 +9,13 @@ import type { RegistrationDetail } from "./registrations.js";
 import type { FlagLevel } from "./shared.js";
 import type { Label } from "./labels.js";
 
+/**
+ * A stored score's tier. `""` is an imported row the backfill has not scored
+ * yet: it reads back with `score: 0`, which then means "not scored", not
+ * "low risk".
+ */
+export type StoredTier = Tier | "";
+
 /** Lookback for cost and usage rollups. */
 export type AccountWindow = "1h" | "1d" | "7d" | "30d";
 
@@ -41,7 +48,8 @@ export interface AccountListItem {
   last_label_at: string | null;
   /** `null` means the account was never scored. */
   latest_score: number | null;
-  latest_tier: Tier | null;
+  /** `""` when the latest row is an unscored import. See `StoredTier`. */
+  latest_tier: StoredTier | null;
   scored_at: string | null;
   /** Cost from post-call events over `window`. */
   inference_cost_usd: number;
@@ -62,7 +70,8 @@ export interface AccountList {
 /** A past score: the `/v1/score` fields minus `baseline_ready`. */
 export interface ScoreSummary {
   score: number;
-  tier: Tier;
+  /** `""` for an unscored import. See `StoredTier`. */
+  tier: StoredTier;
   reasons: ReasonCode[];
   received_at: string;
   shadow_mode: boolean;
@@ -103,7 +112,8 @@ export interface ScoreHistoryItem {
   model_requested: string | null;
   estimated_prompt_tokens: number | null;
   score: number | null;
-  tier: Tier | null;
+  /** `""` for an unscored import. See `StoredTier`. */
+  tier: StoredTier | null;
   reasons: ReasonCode[];
   shadow_mode: boolean;
   deep_mode_active: boolean;

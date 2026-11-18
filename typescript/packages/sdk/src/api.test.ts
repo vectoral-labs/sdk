@@ -631,6 +631,61 @@ describe("imports and data", () => {
     expect(server.requests[1]!.body).toEqual(batch);
   });
 
+  it("imports.send() never sends prompt_text_to_fingerprint", async () => {
+    server.on("POST /v1/import", { body: { import_id: "x", received: 1, accepted: 1, duplicate: 0, rejected: 0, results: [] } });
+    const batch = {
+      events: [
+        {
+          event_id: "evt-1",
+          type: "score" as const,
+          event_time: "2026-05-01T09:12:00Z",
+          score: { account_id: "u1", request: { ip: "192.0.2.1", prompt_text_to_fingerprint: "a secret prompt" } },
+        },
+      ],
+    };
+    await v.imports.send(batch);
+    const sent = (only().body as { events: { score: { request: Record<string, unknown> } }[] }).events[0]!;
+    expect(sent.score.request).toEqual({ ip: "192.0.2.1" });
+    // The caller's batch is untouched.
+    expect(batch.events[0]!.score.request.prompt_text_to_fingerprint).toBe("a secret prompt");
+  });
+
+  it("imports.send() fingerprints imported prompts with the live salt", async () => {
+    const fv = new Vectoral({
+      apiKey: "k",
+      baseUrl: server.url,
+      fingerprint: { enabled: true, salt: "0".repeat(32) + "abcdef", saltId: "s_2026_09" },
+    });
+    server.on("POST /v1/import", { body: { import_id: "x", received: 1, accepted: 1, duplicate: 0, rejected: 0, results: [] } });
+    await fv.imports.send({
+      events: [
+        {
+          event_id: "evt-1",
+          type: "score",
+          event_time: "2026-05-01T09:12:00Z",
+          score: {
+            account_id: "u1",
+            request: { prompt_text_to_fingerprint: "summarise this quarterly report for the board in five bullet points please" },
+          },
+        },
+        { event_id: "evt-2", type: "label", event_time: "2026-05-01T09:12:00Z", label: { account_id: "u1", label: "fraud" } },
+      ],
+    });
+    const events = (only().body as { events: Record<string, any>[] }).events;
+    expect(events[0]!.score.request).not.toHaveProperty("prompt_text_to_fingerprint");
+    expect(events[0]!.score.request.prompt_fingerprint).toMatchObject({ v: 1, salt_id: "s_2026_09" });
+    expect(events[1]).toEqual({ event_id: "evt-2", type: "label", event_time: "2026-05-01T09:12:00Z", label: { account_id: "u1", label: "fraud" } });
+  });
+
+  it("score history types allow the empty tier of an unscored import", async () => {
+    server.on("GET /v1/accounts/u1/scores", {
+      body: { scores: [{ id: 1, score: 0, tier: "", reasons: null }], total: 1, limit: 50, offset: 0 },
+    });
+    const row = (await v.accounts.scores("u1")).scores[0]!;
+    const unscored: boolean = row.tier === "";
+    expect(unscored).toBe(true);
+  });
+
   it("imports.get() reads combined status", async () => {
     server.on("GET /v1/import/csv-export-2026-05", {
       body: { import_id: "csv-export-2026-05", received: 812, rejections: [], rejections_truncated: false },

@@ -100,6 +100,7 @@ export type { AccountFlag, FlagList, FlagListParams } from "./resources/flags.js
 export { Accounts } from "./resources/accounts.js";
 export type {
   AccountWindow,
+  StoredTier,
   AccountListParams,
   AccountListItem,
   AccountList,

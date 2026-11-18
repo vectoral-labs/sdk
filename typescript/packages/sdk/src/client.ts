@@ -153,7 +153,7 @@ export class Vectoral {
     this.sensor = new Sensor(transport);
     this.flags = new Flags(transport);
     this.accounts = new Accounts(transport);
-    this.imports = new Imports(transport);
+    this.imports = new Imports(transport, (req) => this.inference.prepare(req));
     this.data = new Data(transport);
   }
 }

@@ -150,19 +150,38 @@ export interface IntegrationStatus {
 const IMPORT_TIMEOUT_FLOOR_MS = 30_000;
 
 export class Imports {
-  constructor(private readonly transport: Transport) {}
+  /**
+   * `prepareScore` is `Inference.prepare`: it strips the local-only
+   * `request.prompt_text_to_fingerprint` and fingerprints with the client's
+   * salt, exactly as `inference.score()` does.
+   */
+  constructor(
+    private readonly transport: Transport,
+    private readonly prepareScore: (req: ScoreRequest) => ScoreRequest,
+  ) {}
 
   /**
    * Load one batch of past events. A malformed event doesn't fail the batch:
    * check `rejected` and each `results[].reason`. Imported rows are inert —
    * never scored at ingest, never counted against spend caps.
    *
+   * A `score` event is prepared the way `inference.score()` prepares a
+   * request: `request.prompt_text_to_fingerprint` is stripped, and turned
+   * into a `prompt_fingerprint` with your salt when fingerprinting is on.
+   * Your batch object is not mutated.
+   *
    * Every event requires an `event_id`, so a transient failure is retried
    * and a repeat reports `duplicate`. The HTTP timeout is at least 30 s, or
    * `timeoutMs` if you pass a larger one.
    */
   send(batch: ImportBatch, opts: { timeoutMs?: number } = {}): Promise<ImportResult> {
-    return this.transport.post<ImportResult>("/v1/import", batch, {
+    const body: ImportBatch = {
+      ...batch,
+      events: batch.events.map((e) =>
+        e.score?.request ? { ...e, score: this.prepareScore(e.score) } : e,
+      ),
+    };
+    return this.transport.post<ImportResult>("/v1/import", body, {
       idempotent: batch.events.every((e) => e.event_id !== undefined && e.event_id !== ""),
       timeoutMs: Math.max(opts.timeoutMs ?? 0, IMPORT_TIMEOUT_FLOOR_MS),
     });

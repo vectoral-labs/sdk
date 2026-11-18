@@ -478,8 +478,14 @@ export class Inference {
    * Consume `prompt_text_to_fingerprint` (always stripped from the wire,
    * enabled or not) and attach the computed block when fingerprinting is
    * active. The caller's object is never mutated.
+   *
+   * Also applied to every imported score event (`imports.send()`), so the
+   * local-only text never leaves the process by that route either, and an
+   * imported fingerprint shares the live salt.
+   *
+   * @internal
    */
-  private prepare(req: ScoreRequest): ScoreRequest {
+  prepare(req: ScoreRequest): ScoreRequest {
     const { prompt_text_to_fingerprint: text, ...rest } = req.request;
     const out: ScoreRequest = { ...req, request: rest };
     const cfg = this.opts.fingerprint;
@@ -502,7 +508,7 @@ export class Inference {
       if (!this.warnedMissingFingerprintInput) {
         this.warnedMissingFingerprintInput = true;
         this.opts.onWarning?.(
-          "prompt fingerprinting is configured but this score() call has no " +
+          "prompt fingerprinting is configured but this score request has no " +
             "request.prompt_text_to_fingerprint — no fingerprint sent",
         );
       }
