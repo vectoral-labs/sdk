@@ -54,10 +54,11 @@ credentials, or no `fetch`.
 
 The SDK wraps the same endpoints as [`SERVERSIDE_API.md`](SERVERSIDE_API.md) —
 `registrations.score()`, `inference.score()`, `inference.postCall()`,
-`identity.record()` — and adds fail-open handling and in-process prompt
-fingerprinting. It also retries transient failures for you, but **only on
-`registrations.score()`, `inference.postCall()`, and `identity.record()`**, and
-only when the call carries an `event_id`. **`inference.score()` is the
+`identity.record()` — and the rest of the API besides (labels, flags, accounts,
+import, the registration follow-ups, sensor verification, webhook
+verification). It adds fail-open handling and in-process prompt
+fingerprinting. It retries transient failures for you on reads, and on writes
+**only when the call carries an `event_id`**. **`inference.score()` is the
 exception** — it never retries, even with an `event_id`.
 
 ## Guardrails
@@ -68,10 +69,12 @@ exception** — it never retries, even with an `event_id`.
   request is legitimate. Wire up `onError` so the failure is visible.
 - **`postCall` never fails open.** Handle or queue its errors; a transient
   failure belongs on a retry queue, not in a swallowed `catch`.
-- **Pass `event_id`** for anything that may be retried. Automatic retries apply
-  only to `registrations.score()`, `inference.postCall()`, and
-  `identity.record()`, and only when the call carries one. `inference.score()`
-  never retries, so handle its failure yourself.
+- **Pass `event_id`** for anything that may be retried. Automatic retries on a
+  write apply only when the call carries one. `inference.score()` never
+  retries, so handle its failure yourself.
+- **With the Action Policy on, act on `action`**, not `tier`, on both
+  `inference.score()` and `registrations.score()`. It is an open set: treat a
+  value you don't recognise as `allow` and log it.
 - `ip` must be the address your own server observed. It is meaningless when
   forwarded from the client.
 - Self-hosted deployments in header-auth mode pass `customerId` instead of

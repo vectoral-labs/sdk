@@ -5,6 +5,10 @@ import { Registrations } from "./resources/registrations.js";
 import { Inference } from "./resources/inference.js";
 import { Identity } from "./resources/identity.js";
 import { Labels } from "./resources/labels.js";
+import { Sensor } from "./resources/sensor.js";
+import { Flags } from "./resources/flags.js";
+import { Accounts } from "./resources/accounts.js";
+import { Data, Imports } from "./resources/data.js";
 
 const DEFAULT_BASE_URL = "https://api.vectoral.cloud";
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -33,10 +37,11 @@ export interface VectoralOptions {
   /**
    * Retry attempts for transient failures. Default 2.
    *
-   * **Only applied to calls that carry an `event_id`.** Every write endpoint
-   * mints a new row per call, so retrying a request without an idempotency key
-   * would double-write after a response lost in transit. Supplying `event_id`
-   * is what buys you retries.
+   * **Only applied to writes that carry an `event_id`**, and to reads. Every
+   * write endpoint mints a new row per call, so retrying a request without an
+   * idempotency key would double-write after a response lost in transit.
+   * Supplying `event_id` is what buys you retries. `inference.score()` is
+   * never retried; see `ScoreRequest.event_id`.
    */
   retries?: number;
   /**
@@ -72,6 +77,16 @@ export class Vectoral {
   readonly inference: Inference;
   readonly identity: Identity;
   readonly labels: Labels;
+  /** `POST /v1/sensor/verify`: check a browser sensor token. */
+  readonly sensor: Sensor;
+  /** `GET /v1/flags`: account flags. */
+  readonly flags: Flags;
+  /** `/v1/accounts` and `/v1/stats`. */
+  readonly accounts: Accounts;
+  /** `/v1/import`: load past events. */
+  readonly imports: Imports;
+  /** `/v1/data/status` and `/v1/integration/status`. */
+  readonly data: Data;
   /** True when prompt fingerprinting resolved to a usable salt. */
   readonly fingerprintingActive: boolean;
 
@@ -135,6 +150,11 @@ export class Vectoral {
     });
     this.identity = new Identity(transport);
     this.labels = new Labels(transport);
+    this.sensor = new Sensor(transport);
+    this.flags = new Flags(transport);
+    this.accounts = new Accounts(transport);
+    this.imports = new Imports(transport, (req) => this.inference.prepare(req));
+    this.data = new Data(transport);
   }
 }
 

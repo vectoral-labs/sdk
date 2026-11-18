@@ -5,6 +5,14 @@ import { VectoralError, notifyError } from "../errors.js";
 import { assertAck } from "../http.js";
 import type { ResolvedFingerprintConfig } from "../salt.js";
 import { computeFingerprint, conversationKey } from "../fingerprint/index.js";
+import type {
+  ActionReason,
+  FlagLevel,
+  FlagReason,
+  FlagSource,
+  ScoreAction,
+  SensorDecision,
+} from "./shared.js";
 
 /** Risk banding returned alongside the numeric score. */
 export type Tier = "low" | "medium" | "high";
@@ -51,8 +59,10 @@ export type ReasonCode =
   | "spend_cap_exceeded:org"
   | "scoring_unavailable"
   | "reputation_discount"
-  // Browser signals — present only when a verified sensor token was fused into
-  // this score. Absent entirely if you have not deployed `@vectoral-labs/browser`.
+  // Browser signals — present only when a verified token from the browser
+  // sensor (the CDN script that posts to `/v1/sensor/collect`, not
+  // `@vectoral-labs/browser`) was fused into this score via
+  // `request.sensor_token`. Absent entirely if you have not deployed the sensor.
   | "webdriver_present"
   | "automation_signature"
   | "headless_browser"
@@ -147,6 +157,17 @@ export interface RequestBlock {
    */
   ip?: string;
   ip_hash?: string;
+  /**
+   * Your own autonomous system number lookup. When `ip` is present the
+   * server looks it up itself and its answer wins; yours fills in when that
+   * finds nothing or you sent `ip_hash`. Stored for investigation, not scored.
+   */
+  asn?: number;
+  /**
+   * Your own ISO 3166-1 alpha-2 country lookup. Used when no server-side geo
+   * lookup succeeded. Stored for investigation, not scored.
+   */
+  ip_country?: string;
   user_agent?: string;
   /** The model you're about to invoke, e.g. "claude-opus-5". */
   model_requested?: string;
@@ -202,12 +223,15 @@ export interface ScoreRequest {
    * caller may retry, since it stops one request being billed and recorded
    * twice.
    *
-   * The replay is NOT byte-identical: `baseline_ready` and `blocked` are not
-   * restored and come back `false` however the original came out. `score`,
-   * `tier` and `reasons` ARE restored, so enforce a `duplicate: true` response
-   * on those — a block forces `tier` to `high` before the verdict is stored.
-   * This is also why `score()` does not retry internally even when you set
-   * this.
+   * The replay is NOT byte-identical: `baseline_ready` and `signals_fused`
+   * always come back `false`, `account` is left out, and `score` is rounded to
+   * four places. `tier`, `reasons`, `action`, `action_reason` and
+   * `policy_action` ARE restored. `blocked` is restored with the Action Policy
+   * on and, on servers that have shipped the fix, without it too; on an older
+   * server without the policy a replay of a blocked call says `blocked: false`
+   * with `tier: "high"` and the block's code first in `reasons` — so on a
+   * `duplicate: true` response, enforce on those as well. This is also why
+   * `score()` does not retry internally even when you set this.
    */
   event_id?: string;
 }
@@ -244,13 +268,40 @@ export interface ScoreResponse {
    * these. But the usual guard also requires `baseline_ready`, which is false
    * throughout your warm-up window — so a combined condition lets a blocked
    * account through. Check this field on its own, before the risk branch.
+   *
+   * Always sent by the server; optional here only because a fail-open
+   * verdict does not carry it. On a `duplicate` replay, see
+   * `ScoreRequest.event_id` for when it is restored.
    */
   blocked?: boolean;
+  /**
+   * The Action Policy's decision: `allow` or `block`. Present only when the
+   * Action Policy is on for your organisation; when it is, act on this rather
+   * than on `tier`. A manual block or spend cap always gives `block` with
+   * `action_reason: "enforcement"`, even in shadow mode. **An open set:
+   * treat a value you don't recognise as `allow`.**
+   */
+  action?: ScoreAction;
+  /** Why `action` was chosen. Present with `action`. An open set. */
+  action_reason?: ActionReason;
+  /**
+   * In shadow mode, what the policy would have done. `action` is then `allow`
+   * and `action_reason` is `shadow`. Absent outside shadow mode.
+   */
+  policy_action?: ScoreAction;
+  /**
+   * The account's flag state. Present only when account flags are on for your
+   * organisation and the account has been evaluated. It lags by one
+   * background pass, so the call that trips a flag does not carry it and the
+   * next one does. It is informational: a flag never blocks anything.
+   */
+  account?: AccountFlagState;
   /** True when a browser sensor event was folded into this score. */
   signals_fused?: boolean;
   /** The standalone bot score for the joined session, when fused. */
   browser_score?: number;
-  browser_decision?: string;
+  /** The browser session's decision, when fused. An open set. */
+  browser_decision?: SensorDecision;
   /** True when this replays a stored verdict for the request's `event_id`. */
   duplicate?: boolean;
   /** Diagnostic only; treat as an opaque string. */
@@ -265,6 +316,23 @@ export interface ScoreResponse {
   degraded?: boolean;
   /** The underlying failure, when `degraded`. */
   error?: VectoralError;
+}
+
+/** `ScoreResponse.account`: where the account stands with account flags. */
+export interface AccountFlagState {
+  /** An open set. `normal` means nothing to see. */
+  flag_level: FlagLevel;
+  /** Why the account is at this level. Empty at `normal`. An open set. */
+  flag_reasons: FlagReason[];
+  /**
+   * The open flag, `flg_` and a number — the id `flags.get()`, labels and
+   * webhooks use. Absent when there is none.
+   */
+  flag_id?: string;
+  /** RFC 3339 time the current level began. */
+  flag_since?: string;
+  /** What set the current level. An open set. */
+  flag_set_by?: FlagSource;
 }
 
 /** Body of POST /v1/events/post-call. */
@@ -342,12 +410,11 @@ export class Inference {
         this.prepare(req),
         // DELIBERATELY false even when `event_id` is set, which is not the
         // pattern the other endpoints follow. The server's replay response is
-        // built field by field and does not carry `baseline_ready` or
-        // `blocked`, so a replayed verdict reports both as `false` whatever
-        // they really were. Retrying here would therefore turn a timeout into
-        // a verdict that silently fails the usual enforcement guard — worse
-        // than the fail-open zero it was meant to avoid. Revisit when the
-        // replay path returns a complete verdict.
+        // rebuilt from the stored verdict and always reports `baseline_ready`
+        // as `false` (and, on servers without the Action Policy that predate
+        // the replay fix, `blocked` too). Retrying here would therefore turn a
+        // timeout into a verdict that silently fails the usual enforcement
+        // guard — worse than the fail-open zero it was meant to avoid.
         { idempotent: false },
       );
       // See the matching check in registrations.score(): syntactically valid
@@ -411,8 +478,14 @@ export class Inference {
    * Consume `prompt_text_to_fingerprint` (always stripped from the wire,
    * enabled or not) and attach the computed block when fingerprinting is
    * active. The caller's object is never mutated.
+   *
+   * Also applied to every imported score event (`imports.send()`), so the
+   * local-only text never leaves the process by that route either, and an
+   * imported fingerprint shares the live salt.
+   *
+   * @internal
    */
-  private prepare(req: ScoreRequest): ScoreRequest {
+  prepare(req: ScoreRequest): ScoreRequest {
     const { prompt_text_to_fingerprint: text, ...rest } = req.request;
     const out: ScoreRequest = { ...req, request: rest };
     const cfg = this.opts.fingerprint;
@@ -435,7 +508,7 @@ export class Inference {
       if (!this.warnedMissingFingerprintInput) {
         this.warnedMissingFingerprintInput = true;
         this.opts.onWarning?.(
-          "prompt fingerprinting is configured but this score() call has no " +
+          "prompt fingerprinting is configured but this score request has no " +
             "request.prompt_text_to_fingerprint — no fingerprint sent",
         );
       }

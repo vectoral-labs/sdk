@@ -75,6 +75,14 @@ await vectoral.registrations.score({ email });
 This is not configurable, and `retries` defaults to 2. Supplying an `event_id`
 is what buys you retries; there is no setting that makes an unsafe retry safe.
 
+Two kinds of call fall outside that rule. Reads (`registrations.get()`,
+`flags.*`, `accounts.list()`/`get()`/`scores()`/`stats()`, `imports.get()`,
+`data.*`) and `sensor.verify()` write nothing, so they are always retried.
+Writes that take no idempotency key (`registrations.reportStepUp()`,
+`registrations.label()`, the screening clearances, `accounts.setContext()`)
+are never retried. And `inference.score()` is never retried at all; see
+[inference scoring](inference-scoring.md).
+
 ### Choosing an `event_id`
 
 Derive it from **your own record** — the primary key of your pending-signup row,
@@ -84,7 +92,7 @@ is exactly when you need them not to.
 
 ## What counts as transient
 
-Only these are retried, and only with an `event_id`:
+Only these are retried, and for a write only with an `event_id`:
 
 - network errors
 - timeouts
