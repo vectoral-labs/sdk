@@ -69,12 +69,14 @@ verified against its golden vectors — see
 
 ### Endpoint coverage
 
-Every endpoint the SDK calls is live on the deployed API, including
-`POST /v1/registrations/score`.
+Every `/v1` endpoint a server calls is wrapped: scoring, post-call, identity,
+labels, the registration routes (score, read back, step-up, label, screening and
+clearances), sensor verification, flags, accounts, commerce, import, and the
+data and integration status reports. `verifyWebhookSignature()` covers the
+receiving side of webhooks.
 
-Not yet wrapped by the SDK: `POST /v1/registrations/{id}/label` (registration-level
-labels, distinct from the account labels `vectoral.labels` covers),
-`POST /v1/accounts/{id}/commerce`, and the import/status endpoints.
+`POST /v1/sensor/collect` is not wrapped. The browser sensor script calls it, not
+your server.
 
 ## Releasing
 

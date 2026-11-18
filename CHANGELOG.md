@@ -8,6 +8,68 @@ the project follows [Semantic Versioning](https://semver.org/) — with the usua
 
 ## [Unreleased]
 
+## [0.3.0]
+
+`@vectoral-labs/sdk` catches up with the API: the Action Policy, account flags,
+sanctions screening, the registration follow-up calls, and webhooks. Everything
+is additive. No method or field from 0.2.0 was renamed, removed or retyped.
+`@vectoral-labs/browser` has no changes and moves to 0.3.0 because both packages
+share a version.
+
+### Added
+
+- `inference.score()` returns `action`, `action_reason` and `policy_action`
+  when the Action Policy is on for your organisation, and `account` (the flag
+  state: `flag_level`, `flag_reasons`, `flag_id`, `flag_since`, `flag_set_by`)
+  when account flags are on. The request accepts `request.asn` and
+  `request.ip_country`.
+- `registrations.score()` returns the whole verdict. 0.2.0 rebuilt it field by
+  field and dropped `action`, `action_reason`, `policy_action`,
+  `step_up_fails` and `screening`; they now come through, along with any field
+  the API adds later. The API's `degraded` list arrives as `degraded_facts`,
+  because `degraded` already means "the SDK failed open" and keeps that
+  meaning. The request accepts `identity` for sanctions screening.
+- `registrations.get()`, `reportStepUp()`, `label()`, `getScreening()`,
+  `createClearance()` and `revokeClearance()`, for `GET /v1/registrations/{id}`,
+  `POST …/step-up`, `POST …/label`, `GET …/screening`, and `POST`/`DELETE
+  …/screening/clearances`.
+- `labels.submit()` accepts `event_id`, `flag_id`, `reason_code` and
+  `cleared_reasons`, and returns `flag` when the label settled a flag.
+  `fraud()` and `legitimate()` take the same fields as a third argument.
+- `sensor.verify()` for `POST /v1/sensor/verify`, with an optional `action`.
+  Servers that check it refuse a token minted for another action with a 400
+  (`token action mismatch`).
+- `flags.list()`, `flags.iterate()` (follows `next_cursor`) and `flags.get()`.
+- `accounts.list()`, `get()`, `scores()`, `setContext()`, `recordCommerce()`
+  and `stats()`.
+- `imports.send()` and `imports.get()` for `POST /v1/import` and its status;
+  `data.status()` and `data.integrationStatus()`.
+- `verifyWebhookSignature()`, `parseWebhook()` and `signWebhookPayload()` for
+  the `x-vectoral-signature` scheme, tested against vectors produced by the
+  server's own signer. Typed envelopes for every webhook event, and
+  `isWebhookEvent()` to narrow one.
+- Types for the open value sets (`Action`, `ActionReason`, `FlagLevel`,
+  `FlagReason`, `SensorDecision` and the rest). Each includes `string`, so a
+  value added to the API later type-checks and passes through untouched.
+
+### Changed
+
+- Reads (`GET`) and `sensor.verify()` are retried on transient failures. Writes
+  keep the 0.2.0 rule: retried only with an `event_id`. That now covers
+  `labels.submit()` with an `event_id`, `accounts.recordCommerce()` and
+  `imports.send()`. `inference.score()` is still never retried.
+- `registrations.score()` with `deadline_ms` keeps its HTTP timeout at least
+  1,000 ms above the deadline, up from 300. The server's domain rules and save
+  run outside `deadline_ms` and can take about 750 ms, so the old margin could
+  abort a signup the server was about to answer.
+
+### Fixed
+
+- The `ReasonCode` comment said the browser reason codes come from
+  `@vectoral-labs/browser`. They come from the CDN browser sensor's token.
+
+## [0.2.0] — 2026-09-25
+
 ### Added
 
 - `@vectoral-labs/browser`: standalone `<script>` build of the device fingerprint

@@ -56,6 +56,34 @@ export interface PostOptions {
   timeoutMs?: number;
 }
 
+type HttpMethod = "GET" | "POST" | "DELETE";
+
+/** Query parameters. `undefined` values are left out of the URL. */
+export type QueryParams = Record<string, string | number | boolean | undefined>;
+
+function queryString(query: QueryParams | undefined): string {
+  if (!query) return "";
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) {
+    if (v !== undefined) params.append(k, String(v));
+  }
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
+
+/**
+ * One path segment, escaped so an id can never reach another route. `.` and
+ * `..` survive `encodeURIComponent` and a URL parser resolves them, so
+ * `flags.get("..")` would otherwise read `/v1/` — refuse them, and the empty
+ * id, which would hit the collection route instead of the item.
+ */
+export function seg(value: string): string {
+  if (value === "" || value === "." || value === "..") {
+    throw new TypeError(`vectoral: ${JSON.stringify(value)} is not a valid id`);
+  }
+  return encodeURIComponent(value);
+}
+
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -66,12 +94,37 @@ export class Transport {
   constructor(private readonly opts: TransportOptions) {}
 
   async post<T>(path: string, body: unknown, po: PostOptions): Promise<T> {
+    return this.request<T>("POST", path, body, po);
+  }
+
+  /**
+   * GET a resource. Reads change nothing server-side, so they are always
+   * safe to retry on a transient failure.
+   */
+  get<T>(path: string, query?: QueryParams): Promise<T> {
+    return this.request<T>("GET", `${path}${queryString(query)}`, undefined, {
+      idempotent: true,
+    });
+  }
+
+  /** DELETE a resource. Retried only when the caller marks it idempotent. */
+  delete<T>(path: string, po: PostOptions): Promise<T> {
+    return this.request<T>("DELETE", path, undefined, po);
+  }
+
+  private async request<T>(
+    method: HttpMethod,
+    path: string,
+    body: unknown,
+    po: PostOptions,
+  ): Promise<T> {
     const url = `${this.opts.baseUrl}${path}`;
     const maxAttempts = po.idempotent ? this.opts.retries : 0;
     let attempt = 0;
     for (;;) {
       try {
-        return await this.doPost<T>(
+        return await this.doRequest<T>(
+          method,
           url,
           body,
           Math.max(po.timeoutMs ?? 0, this.opts.timeoutMs),
@@ -88,7 +141,12 @@ export class Transport {
     }
   }
 
-  private async doPost<T>(url: string, body: unknown, timeoutMs: number): Promise<T> {
+  private async doRequest<T>(
+    method: HttpMethod,
+    url: string,
+    body: unknown,
+    timeoutMs: number,
+  ): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     // The timer must stay armed until the BODY is consumed, not just until the
@@ -96,13 +154,14 @@ export class Transport {
     // mid-body would otherwise hang this call forever: no timeout, no retry,
     // and no fail-open verdict for a flow that is waiting on one.
     try {
-      return await this.send<T>(url, body, controller, timeoutMs);
+      return await this.send<T>(method, url, body, controller, timeoutMs);
     } finally {
       clearTimeout(timer);
     }
   }
 
   private async send<T>(
+    method: HttpMethod,
     url: string,
     body: unknown,
     controller: AbortController,
@@ -123,13 +182,13 @@ export class Transport {
     let res: Response;
     try {
       res = await this.opts.fetch(url, {
-        method: "POST",
+        method,
         headers: {
-          "Content-Type": "application/json",
+          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
           ...this.opts.authHeader,
           ...this.opts.headers,
         },
-        body: JSON.stringify(body),
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         signal: controller.signal,
       });
     } catch (err) {
